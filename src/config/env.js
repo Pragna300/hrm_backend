@@ -7,7 +7,7 @@ const EnvSchema = z.object({
 
   DATABASE_URL: z.string().optional(),
 
-  JWT_SECRET: z.string().optional(),
+  JWT_SECRET: z.string().default('shnoor_secret_2026'),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
