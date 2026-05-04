@@ -3,7 +3,12 @@ const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+
+const { env } = require('./config/env');
+const { verifyJWT } = require('./middleware/auth');
+const { userWithEmployeeInclude, buildAuthUserPayload } = require('./lib/authPayload');
+const { attendanceCalendarDate } = require('./lib/attendanceDate');
+const { buildTodaySummary } = require('./lib/attendanceSummary');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -11,11 +16,20 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || 'shnoor_secret_2026';
+function signAuthToken(user) {
+  return jwt.sign(
+    {
+      userId: user.id,
+      role: user.role,
+      employeeId: user.employee?.id ?? null,
+    },
+    env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+}
 
 // --- AUTH ROUTES ---
 
-// POST /api/auth/register
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -30,14 +44,11 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Split name into first and last for employee record
     const nameParts = name.trim().split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    // Create User and Employee in a transaction
-    const newUser = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email,
         passwordHash: hashedPassword,
@@ -45,13 +56,13 @@ app.post('/api/auth/register', async (req, res) => {
         employee: {
           create: {
             employeeCode: `EMP${Math.floor(Math.random() * 10000)}`,
-            firstName: firstName,
-            lastName: lastName,
+            firstName,
+            lastName,
             dateHired: new Date(),
-          }
-        }
+          },
+        },
       },
-      include: { employee: true }
+      include: { employee: true },
     });
 
     res.status(201).json({ success: true, message: 'User registered successfully' });
@@ -61,14 +72,13 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ 
+    const user = await prisma.user.findUnique({
       where: { email },
-      include: { employee: true }
+      include: userWithEmployeeInclude,
     });
 
     if (!user) {
@@ -80,21 +90,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role, employeeId: user.employee?.id },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const token = signAuthToken(user);
 
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        name: `${user.employee?.first_name} ${user.employee?.last_name}`
-      }
+      user: buildAuthUserPayload(user),
     });
   } catch (err) {
     console.error(err);
@@ -102,25 +103,130 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// --- ATTENDANCE ROUTES (Phase 0) ---
-
-app.post('/api/attendance/tap-in', async (req, res) => {
-  // Logic from previous step... (simplified for this turn)
+app.get('/api/auth/me', verifyJWT, async (req, res) => {
   try {
-    const { employeeId } = req.body; // In real app, get from JWT
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    const log = await prisma.attendanceLog.upsert({
-      where: { employeeId_date: { employeeId, date: today } },
-      update: { checkIn: now, status: 'present' },
-      create: { employeeId, date: today, checkIn: now, status: 'present' }
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: userWithEmployeeInclude,
     });
-    res.json({ success: true, message: 'Clocked in successfully', data: log });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.json({ success: true, user: buildAuthUserPayload(user) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-const PORT = process.env.PORT || 5000;
+// --- ATTENDANCE (JWT + employee from token) ---
+
+function requireEmployeeId(req, res) {
+  const id = req.user?.employeeId;
+  if (id == null || id === '') {
+    res.status(403).json({
+      success: false,
+      message: 'No employee profile is linked to this account. Attendance is unavailable.',
+    });
+    return null;
+  }
+  return Number(id);
+}
+
+async function loadTodayAttendanceSummary(employeeId, date) {
+  const segments = await prisma.attendanceSegment.findMany({
+    where: { employeeId, date },
+    orderBy: { checkIn: 'asc' },
+  });
+  return buildTodaySummary(segments, new Date());
+}
+
+app.get('/api/attendance/today', verifyJWT, async (req, res) => {
+  try {
+    const employeeId = requireEmployeeId(req, res);
+    if (employeeId == null) return;
+
+    const date = attendanceCalendarDate();
+    const summary = await loadTodayAttendanceSummary(employeeId, date);
+
+    res.json({ success: true, data: { date, ...summary } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/** Tap in: closes any open segment for the day, then starts a new segment (unlimited cycles). */
+app.post('/api/attendance/tap-in', verifyJWT, async (req, res) => {
+  try {
+    const employeeId = requireEmployeeId(req, res);
+    if (employeeId == null) return;
+
+    const date = attendanceCalendarDate();
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      const openRows = await tx.attendanceSegment.findMany({
+        where: { employeeId, date, checkOut: null },
+      });
+      for (const row of openRows) {
+        await tx.attendanceSegment.update({
+          where: { id: row.id },
+          data: { checkOut: now },
+        });
+      }
+      await tx.attendanceSegment.create({
+        data: {
+          employeeId,
+          date,
+          checkIn: now,
+          source: 'web',
+        },
+      });
+    });
+
+    const summary = await loadTodayAttendanceSummary(employeeId, date);
+    res.json({ success: true, message: 'Tapped in', data: summary });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.post('/api/attendance/tap-out', verifyJWT, async (req, res) => {
+  try {
+    const employeeId = requireEmployeeId(req, res);
+    if (employeeId == null) return;
+
+    const date = attendanceCalendarDate();
+    const now = new Date();
+
+    const open = await prisma.attendanceSegment.findFirst({
+      where: { employeeId, date, checkOut: null },
+      orderBy: { checkIn: 'desc' },
+    });
+
+    if (!open) {
+      return res.status(400).json({
+        success: false,
+        message: 'No open tap-in session. Tap in first.',
+      });
+    }
+
+    await prisma.attendanceSegment.update({
+      where: { id: open.id },
+      data: { checkOut: now },
+    });
+
+    const summary = await loadTodayAttendanceSummary(employeeId, date);
+    res.json({ success: true, message: 'Tapped out', data: summary });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+const PORT = env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on :${PORT}`));
