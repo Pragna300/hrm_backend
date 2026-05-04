@@ -122,7 +122,6 @@ model Employee {
   shift           Shift?          @relation(fields: [shiftId], references: [id])
   manager         Employee?       @relation("EmployeeToEmployee", fields: [managerId], references: [id])
   subordinates    Employee[]      @relation("EmployeeToEmployee")
-  attendanceLogs     AttendanceLog[]
   attendanceSegments AttendanceSegment[]
 
   @@map("employees")
@@ -141,23 +140,4 @@ model AttendanceSegment {
 
   @@index([employeeId, date])
   @@map("attendance_segments")
-}
-
-model AttendanceLog {
-  id              Int       @id @default(autoincrement())
-  employeeId      Int       @map("employee_id")
-  date            DateTime  @db.Date
-  checkIn         DateTime? @map("check_in") @db.Timestamptz
-  checkOut        DateTime? @map("check_out") @db.Timestamptz
-  totalMinutes    Int?      @map("total_minutes")
-  status          String?   @default("present") @db.VarChar(20)
-  isLate          Boolean?  @default(false) @map("is_late")
-  overtimeMinutes Int?      @default(0) @map("overtime_minutes")
-  source          String?   @default("web") @db.VarChar(20)
-  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz
-
-  employee Employee @relation(fields: [employeeId], references: [id])
-
-  @@unique([employeeId, date])
-  @@map("attendance_logs")
 }

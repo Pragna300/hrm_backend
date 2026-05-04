@@ -1,15 +1,9 @@
-let prisma = null;
+const { PrismaClient } = require('@prisma/client');
 
-function getPrisma() {
-  if (!prisma) {
-    // Lazily require so this file exists before installing deps
-    // and so tests can mock it.
-    // eslint-disable-next-line global-require
-    const { PrismaClient } = require('@prisma/client');
-    prisma = new PrismaClient();
-  }
-  return prisma;
-}
+const prisma = new PrismaClient();
 
-module.exports = { getPrisma };
+module.exports = {
+  prisma,
+  getPrisma: () => prisma,
+};
 
