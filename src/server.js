@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('./config/database');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -11,7 +11,8 @@ const { attendanceCalendarDate } = require('./lib/attendanceDate');
 const { buildTodaySummary } = require('./lib/attendanceSummary');
 
 const app = express();
-const prisma = new PrismaClient();
+// Removed local prisma init, now using imported instance
+
 
 app.use(cors());
 app.use(express.json());

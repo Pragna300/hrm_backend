@@ -32,10 +32,17 @@ function buildTodaySummary(segments, now = new Date()) {
     }
 
     let gapBeforeNextMinutes = null;
-    if (checkOut && i < ordered.length - 1) {
-      const nextIn = ordered[i + 1].checkIn;
-      gapBeforeNextMinutes = minutesBetween(checkOut, nextIn);
-      breakMinutes += gapBeforeNextMinutes;
+    if (checkOut) {
+      if (i < ordered.length - 1) {
+        // Gap between segments
+        const nextIn = ordered[i + 1].checkIn;
+        gapBeforeNextMinutes = minutesBetween(checkOut, nextIn);
+        breakMinutes += gapBeforeNextMinutes;
+      } else if (i === ordered.length - 1) {
+        // It's the last segment and it's closed: current break time
+        const currentBreak = minutesBetween(checkOut, now);
+        breakMinutes += currentBreak;
+      }
     }
 
     return {
