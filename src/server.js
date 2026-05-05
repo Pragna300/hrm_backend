@@ -14,7 +14,7 @@ const app = express();
 // Removed local prisma init, now using imported instance
 
 
-app.use(cors());
+app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
 
 function signAuthToken(user) {
