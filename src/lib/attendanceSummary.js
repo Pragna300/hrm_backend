@@ -4,7 +4,7 @@
  */
 function minutesBetween(a, b) {
   if (!a || !b) return 0;
-  return Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000));
+  return Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 60000);
 }
 
 /**
@@ -22,14 +22,9 @@ function buildTodaySummary(segments, now = new Date()) {
   const mapped = ordered.map((seg, i) => {
     const checkIn = seg.checkIn;
     const checkOut = seg.checkOut;
-    let durationMinutes = null;
-    if (checkOut) {
-      durationMinutes = minutesBetween(checkIn, checkOut);
-      activeMinutes += durationMinutes;
-    } else {
-      durationMinutes = minutesBetween(checkIn, now);
-      activeMinutes += durationMinutes;
-    }
+    
+    const durationMinutes = minutesBetween(checkIn, checkOut || now);
+    activeMinutes += durationMinutes;
 
     let gapBeforeNextMinutes = null;
     if (checkOut) {

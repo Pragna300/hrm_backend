@@ -138,6 +138,8 @@ model AttendanceSegment {
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@index([checkIn])
   @@map("attendance_segments")
 }
