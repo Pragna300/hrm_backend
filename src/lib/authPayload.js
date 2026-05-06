@@ -34,7 +34,7 @@ function buildAuthUserPayload(user) {
         : null,
     workEmail: emp?.workEmail || user.email,
     workPhone: emp?.workPhone || emp?.personalPhone || null,
-    organizationName: 'SHNOOR International LLC',
+    organizationName: user.organization?.name || 'SHNOOR International LLC',
     hasEmployeeProfile: Boolean(emp),
   };
 }
