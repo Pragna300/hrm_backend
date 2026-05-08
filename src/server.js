@@ -26,6 +26,7 @@ function signAuthToken(user) {
       userId: user.id,
       role: user.role,
       employeeId: user.employee?.id ?? null,
+      organizationId: user.organizationId,
     },
     env.JWT_SECRET,
     { expiresIn: '24h' }
@@ -94,10 +95,10 @@ function pickEmployeeFields(body) {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { companyName, companyAddress, sector, adminName, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'All fields are required' });
+    if (!companyName || !email || !password || !adminName) {
+      return res.status(400).json({ success: false, message: 'All required fields must be filled' });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -106,28 +107,39 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const nameParts = name.trim().split(' ');
+    const nameParts = adminName.trim().split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    await prisma.user.create({
-      data: {
-        email,
-        passwordHash: hashedPassword,
-        role: email.includes('admin') ? 'admin' : 'employee',
-        employee: {
-          create: {
-            employeeCode: `EMP${Math.floor(Math.random() * 10000)}`,
-            firstName,
-            lastName,
-            dateHired: new Date(),
+    // Create organization and admin user in a transaction
+    await prisma.$transaction(async (tx) => {
+      const org = await tx.organization.create({
+        data: {
+          name: companyName,
+          address: companyAddress,
+          sector: sector,
+        }
+      });
+
+      await tx.user.create({
+        data: {
+          email,
+          passwordHash: hashedPassword,
+          role: 'admin',
+          organizationId: org.id,
+          employee: {
+            create: {
+              employeeCode: `ADM${Math.floor(Math.random() * 10000)}`,
+              firstName,
+              lastName,
+              dateHired: new Date(),
+            },
           },
         },
-      },
-      include: { employee: true },
+      });
     });
 
-    res.status(201).json({ success: true, message: 'User registered successfully' });
+    res.status(201).json({ success: true, message: 'Admin and Organization registered successfully' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -156,10 +168,12 @@ app.post('/api/auth/bootstrap-admin', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await prisma.user.findUnique({
       where: { email },
-      include: userWithEmployeeInclude,
+      include: {
+        ...userWithEmployeeInclude,
+        organization: true,
+      },
     });
 
     if (!user) {
@@ -195,7 +209,10 @@ app.get('/api/auth/me', verifyJWT, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      include: userWithEmployeeInclude,
+      include: {
+        ...userWithEmployeeInclude,
+        organization: true,
+      },
     });
 
     if (!user) {
@@ -266,6 +283,7 @@ app.post('/api/admin/employees', verifyJWT, rbac('admin'), async (req, res) => {
           passwordHash,
           role: 'employee',
           isActive: true,
+          organizationId: req.user.organizationId ?? null,
         },
       });
 

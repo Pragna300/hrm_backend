@@ -16,7 +16,9 @@ model Organization {
   fiscalYearStart   Int?     @default(4) @map("fiscal_year_start")
   workWeekStart     String?  @default("Monday") @map("work_week_start") @db.VarChar(10)
   address           String?
+  sector            String?  @db.VarChar(100)
   createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  users             User[]
 
   @@map("organization")
 }
@@ -66,9 +68,11 @@ model User {
   lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
   failedAttempts Int?      @default(0) @map("failed_attempts")
   lockedUntil    DateTime? @map("locked_until") @db.Timestamptz
+  organizationId Int?      @map("organization_id")
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime? @default(now()) @map("updated_at") @db.Timestamptz
   employee       Employee?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("users")
 }
