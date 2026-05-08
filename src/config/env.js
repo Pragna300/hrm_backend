@@ -13,6 +13,16 @@ const EnvSchema = z.object({
 
   FRONTEND_URL: z.string().default('http://localhost:3000'),
   COOKIE_SECRET: z.string().default('dev_cookie_secret_change_me'),
+
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .string()
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('khaleel@shnoor.com'),
 });
 
 const env = EnvSchema.parse(process.env);
