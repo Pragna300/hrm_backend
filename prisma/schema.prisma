@@ -7,55 +7,128 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// =====================================================================
+// SaaS platform-level models (no tenant scope)
+// =====================================================================
+
+/// Subscription plan offered to companies that sign up to the platform.
+model Plan {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique @db.VarChar(100)
+  slug          String   @unique @db.VarChar(100)
+  description   String?
+  monthlyPrice  Decimal  @default(0) @map("monthly_price") @db.Decimal(10, 2)
+  yearlyPrice   Decimal  @default(0) @map("yearly_price")  @db.Decimal(10, 2)
+  currency      String   @default("USD") @db.VarChar(10)
+  seatLimit     Int      @default(10) @map("seat_limit")
+  features      String?
+  isActive      Boolean  @default(true) @map("is_active")
+  isDefault     Boolean  @default(false) @map("is_default")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+/// Active or historical subscription of an organization to a plan.
+model Subscription {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  planId          Int       @map("plan_id")
+  status          String    @default("trialing") @db.VarChar(30) // trialing|active|past_due|cancelled|expired
+  billingCycle    String    @default("monthly") @map("billing_cycle") @db.VarChar(20) // monthly|yearly
+  unitAmount      Decimal   @map("unit_amount") @db.Decimal(10, 2)
+  currency        String    @default("USD") @db.VarChar(10)
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  currentStart    DateTime  @map("current_start") @db.Timestamptz
+  currentEnd      DateTime  @map("current_end") @db.Timestamptz
+  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId],         references: [id])
+  invoices     Invoice[]
+
+  @@index([organizationId])
+  @@map("subscriptions")
+}
+
+/// Issued invoice (revenue record) for a subscription period.
+model Invoice {
+  id             Int       @id @default(autoincrement())
+  subscriptionId Int       @map("subscription_id")
+  organizationId Int       @map("organization_id")
+  number         String    @unique @db.VarChar(40)
+  amount         Decimal   @db.Decimal(10, 2)
+  currency       String    @default("USD") @db.VarChar(10)
+  status         String    @default("issued") @db.VarChar(20) // issued|paid|void
+  periodStart    DateTime  @map("period_start") @db.Timestamptz
+  periodEnd      DateTime  @map("period_end")   @db.Timestamptz
+  issuedAt       DateTime  @default(now()) @map("issued_at") @db.Timestamptz
+  paidAt         DateTime? @map("paid_at") @db.Timestamptz
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("invoices")
+}
+
+// =====================================================================
+// Tenant: Organization
+// =====================================================================
+
 model Organization {
-  id                Int      @id @default(autoincrement())
-  name              String   @db.VarChar(255)
-  logoUrl           String?  @map("logo_url")
-  timezone          String?  @default("Asia/Kolkata") @db.VarChar(100)
-  currency          String?  @default("INR") @db.VarChar(10)
-  fiscalYearStart   Int?     @default(4) @map("fiscal_year_start")
-  workWeekStart     String?  @default("Monday") @map("work_week_start") @db.VarChar(10)
-  address           String?
-  sector            String?  @db.VarChar(100)
-  createdAt         DateTime? @default(now()) @map("created_at") @db.Timestamptz
-  users             User[]
+  id              Int      @id @default(autoincrement())
+  name            String   @db.VarChar(255)
+  slug            String   @unique @db.VarChar(120)
+  logoUrl         String?  @map("logo_url")
+  timezone        String?  @default("Asia/Kolkata") @db.VarChar(100)
+  currency        String?  @default("INR") @db.VarChar(10)
+  fiscalYearStart Int?     @default(4) @map("fiscal_year_start")
+  workWeekStart   String?  @default("Monday") @map("work_week_start") @db.VarChar(10)
+  address         String?
+  sector          String?  @db.VarChar(100)
+  contactEmail    String?  @map("contact_email") @db.VarChar(255)
+  contactPhone    String?  @map("contact_phone") @db.VarChar(50)
+  status          String   @default("active") @db.VarChar(30) // active|suspended|cancelled
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  users         User[]
+  employees     Employee[]
+  departments   Department[]
+  locations     Location[]
+  shifts        Shift[]
+  leaveTypes    LeaveType[]
+  leaveRequests LeaveRequest[]
+  holidays      Holiday[]
+  payrollRuns   PayrollRun[]
+  announcements Announcement[]
+  notifications Notification[]
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  newsPosts         NewsPost[]
+  employeeDocuments EmployeeDocument[]
+  employeeTasks     EmployeeTask[]
 
   @@map("organization")
 }
 
-model Department {
-  id          Int          @id @default(autoincrement())
-  name        String       @db.VarChar(255)
-  parentId    Int?         @map("parent_id")
-  isActive    Boolean?     @default(true) @map("is_active")
-  createdAt   DateTime?    @default(now()) @map("created_at") @db.Timestamptz
-  parent      Department?  @relation("DepartmentToDepartment", fields: [parentId], references: [id])
-  children    Department[] @relation("DepartmentToDepartment")
-  employees   Employee[]
+// =====================================================================
+// Auth + people
+// =====================================================================
 
-  @@map("departments")
-}
-
-model Location {
-  id        Int        @id @default(autoincrement())
-  name      String     @db.VarChar(255)
-  address   String?
-  isActive  Boolean?   @default(true) @map("is_active")
-  employees Employee[]
-
-  @@map("locations")
-}
-
-model Shift {
-  id         Int        @id @default(autoincrement())
-  name       String     @db.VarChar(255)
-  startTime  DateTime   @map("start_time") @db.Time
-  endTime    DateTime   @map("end_time") @db.Time
-  workDays   String?    @default("Mon,Tue,Wed,Thu,Fri") @map("work_days") @db.VarChar(20)
-  isDefault  Boolean?   @default(false) @map("is_default")
-  employees  Employee[]
-
-  @@map("shifts")
+enum Role {
+  super_admin // platform owner — software vendor (no organization)
+  manager     // company owner / head — full access inside one organization
+  hr          // HR staff inside a company
+  team_lead   // leads a team inside a company
+  employee    // regular employee
 }
 
 model User {
@@ -64,80 +137,151 @@ model User {
   passwordHash   String    @map("password_hash") @db.VarChar(255)
   role           Role
   refreshToken   String?   @map("refresh_token")
-  isActive       Boolean?  @default(true) @map("is_active")
+  isActive       Boolean   @default(true) @map("is_active")
   lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
-  failedAttempts Int?      @default(0) @map("failed_attempts")
+  failedAttempts Int       @default(0) @map("failed_attempts")
   lockedUntil    DateTime? @map("locked_until") @db.Timestamptz
-  organizationId Int?      @map("organization_id")
-  createdByAdminId Int?    @map("created_by_admin_id")
-  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime? @default(now()) @map("updated_at") @db.Timestamptz
-  
-  employee       Employee?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  
-  createdMembers   User[]    @relation("UserToUser")
-  createdByAdmin   User?     @relation("UserToUser", fields: [createdByAdminId], references: [id])
-  
-  tasksAssigned    Task[]    @relation("AssignedTo")
-  tasksCreated     Task[]    @relation("AssignedBy")
+  organizationId   Int?      @map("organization_id")
+  createdByAdminId Int?      @map("created_by_admin_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  employee          Employee?
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  newsPosts         NewsPost[]
+  documentsUploaded EmployeeDocument[]
+
+  createdMembers User[] @relation("UserToUser")
+  createdByAdmin User?  @relation("UserToUser", fields: [createdByAdminId], references: [id])
+
+  tasksAssigned Task[] @relation("AssignedTo")
+  tasksCreated  Task[] @relation("AssignedBy")
+
+  @@index([organizationId])
   @@map("users")
 }
 
-enum Role {
-  admin
-  manager
-  employee
-}
-
 model Employee {
-  id                      Int       @id @default(autoincrement())
-  userId                  Int?      @unique @map("user_id")
-  employeeCode            String    @unique @map("employee_code") @db.VarChar(50)
-  firstName               String    @map("first_name") @db.VarChar(100)
-  lastName                String    @map("last_name") @db.VarChar(100)
-  profilePhotoUrl         String?   @map("profile_photo_url")
-  dateOfBirth             DateTime? @map("date_of_birth") @db.Date
-  gender                  String?   @db.VarChar(20)
-  bloodGroup              String?   @map("blood_group") @db.VarChar(10)
-  workEmail               String?   @map("work_email") @db.VarChar(255)
-  workPhone               String?   @map("work_phone") @db.VarChar(25)
-  personalEmail           String?   @map("personal_email") @db.VarChar(255)
-  personalPhone           String?   @map("personal_phone") @db.VarChar(25)
-  emergencyName           String?   @map("emergency_name") @db.VarChar(255)
-  emergencyPhone          String?   @map("emergency_phone") @db.VarChar(25)
-  departmentId            Int?      @map("department_id")
-  locationId              Int?      @map("location_id")
-  shiftId                 Int?      @map("shift_id")
-  managerId               Int?      @map("manager_id")
-  designation             String?   @db.VarChar(255)
-  employmentType          String?   @default("full_time") @map("employment_type") @db.VarChar(50)
-  employmentStatus        String?   @default("active") @map("employment_status") @db.VarChar(30)
-  dateHired               DateTime  @map("date_hired") @db.Date
-  contractedHoursPerWeek  Decimal?  @default(40.00) @map("contracted_hours_per_week") @db.Decimal(5, 2)
-  fte                     Decimal?  @default(1.00) @map("fte") @db.Decimal(3, 2)
-  bankName                String?   @map("bank_name") @db.VarChar(100)
-  bankAccountEnc          String?   @map("bank_account_enc")
-  bankIfsc                String?   @map("bank_ifsc") @db.VarChar(20)
-  addressLine1            String?   @map("address_line1")
-  city                    String?   @db.VarChar(100)
-  state                   String?   @db.VarChar(100)
-  postalCode              String?   @map("postal_code") @db.VarChar(20)
-  country                 String?   @default("India") @db.VarChar(100)
-  createdAt               DateTime? @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt               DateTime? @default(now()) @map("updated_at") @db.Timestamptz
+  id                     Int       @id @default(autoincrement())
+  userId                 Int?      @unique @map("user_id")
+  organizationId         Int       @map("organization_id")
+  employeeCode           String    @map("employee_code") @db.VarChar(50)
+  firstName              String    @map("first_name") @db.VarChar(100)
+  lastName               String    @map("last_name") @db.VarChar(100)
+  profilePhotoUrl        String?   @map("profile_photo_url")
+  dateOfBirth            DateTime? @map("date_of_birth") @db.Date
+  gender                 String?   @db.VarChar(20)
+  bloodGroup             String?   @map("blood_group") @db.VarChar(10)
+  workEmail              String?   @map("work_email") @db.VarChar(255)
+  workPhone              String?   @map("work_phone") @db.VarChar(25)
+  personalEmail          String?   @map("personal_email") @db.VarChar(255)
+  personalPhone          String?   @map("personal_phone") @db.VarChar(25)
+  emergencyName          String?   @map("emergency_name") @db.VarChar(255)
+  emergencyPhone         String?   @map("emergency_phone") @db.VarChar(25)
+  departmentId           Int?      @map("department_id")
+  locationId             Int?      @map("location_id")
+  shiftId                Int?      @map("shift_id")
+  managerId              Int?      @map("manager_id")
+  designation            String?   @db.VarChar(255)
+  employmentType         String?   @default("full_time") @map("employment_type") @db.VarChar(50)
+  employmentStatus       String?   @default("active") @map("employment_status") @db.VarChar(30)
+  dateHired              DateTime  @map("date_hired") @db.Date
+  contractedHoursPerWeek Decimal?  @default(40.00) @map("contracted_hours_per_week") @db.Decimal(5, 2)
+  fte                    Decimal?  @default(1.00) @map("fte") @db.Decimal(3, 2)
+  monthlyCtc             Decimal?  @default(0) @map("monthly_ctc") @db.Decimal(12, 2)
+  bankName               String?   @map("bank_name") @db.VarChar(100)
+  bankAccountEnc         String?   @map("bank_account_enc")
+  bankIfsc               String?   @map("bank_ifsc") @db.VarChar(20)
+  addressLine1           String?   @map("address_line1")
+  city                   String?   @db.VarChar(100)
+  state                  String?   @db.VarChar(100)
+  postalCode             String?   @map("postal_code") @db.VarChar(20)
+  country                String?   @default("India") @db.VarChar(100)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  user            User?           @relation(fields: [userId], references: [id])
-  department      Department?     @relation(fields: [departmentId], references: [id])
-  location        Location?       @relation(fields: [locationId], references: [id])
-  shift           Shift?          @relation(fields: [shiftId], references: [id])
-  manager         Employee?       @relation("EmployeeToEmployee", fields: [managerId], references: [id])
-  subordinates    Employee[]      @relation("EmployeeToEmployee")
+  user               User?               @relation(fields: [userId], references: [id])
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department         Department?         @relation(fields: [departmentId], references: [id])
+  location           Location?           @relation(fields: [locationId], references: [id])
+  shift              Shift?              @relation(fields: [shiftId], references: [id])
+  manager            Employee?           @relation("EmployeeToEmployee", fields: [managerId], references: [id])
+  subordinates       Employee[]          @relation("EmployeeToEmployee")
   attendanceSegments AttendanceSegment[]
+  leaveRequests      LeaveRequest[]      @relation("LeaveRequester")
+  approvedLeaves     LeaveRequest[]      @relation("LeaveApprover")
+  leaveBalances      LeaveBalance[]
+  payrollItems       PayrollItem[]
+  documents          EmployeeDocument[]
+  tasksAssigned      EmployeeTask[] @relation("TaskAssignee")
+  tasksAdded         EmployeeTask[] @relation("TaskAddedBy")
+  tasksRelatedTo     EmployeeTask[] @relation("TaskRelatedTo")
 
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId])
+  @@index([managerId])
   @@map("employees")
 }
+
+// =====================================================================
+// Org structure
+// =====================================================================
+
+model Department {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  name           String   @db.VarChar(255)
+  parentId       Int?     @map("parent_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Department?  @relation("DepartmentToDepartment", fields: [parentId], references: [id])
+  children     Department[] @relation("DepartmentToDepartment")
+  employees    Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model Location {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  name           String   @db.VarChar(255)
+  address        String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("locations")
+}
+
+model Shift {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  name           String   @db.VarChar(255)
+  startTime      DateTime @map("start_time") @db.Time
+  endTime        DateTime @map("end_time")   @db.Time
+  workDays       String?  @default("Mon,Tue,Wed,Thu,Fri") @map("work_days") @db.VarChar(20)
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("shifts")
+}
+
+// =====================================================================
+// Attendance
+// =====================================================================
 
 model AttendanceSegment {
   id         Int       @id @default(autoincrement())
@@ -146,7 +290,7 @@ model AttendanceSegment {
   checkIn    DateTime  @map("check_in") @db.Timestamptz
   checkOut   DateTime? @map("check_out") @db.Timestamptz
   source     String?   @default("web") @db.VarChar(20)
-  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -154,6 +298,222 @@ model AttendanceSegment {
   @@index([date])
   @@index([checkIn])
   @@map("attendance_segments")
+}
+
+model LeaveType {
+  id              Int      @id @default(autoincrement())
+  organizationId  Int      @map("organization_id")
+  name            String   @db.VarChar(100)
+  code            String   @db.VarChar(20)
+  yearlyQuota     Decimal  @default(12) @map("yearly_quota") @db.Decimal(5, 2)
+  isPaid          Boolean  @default(true) @map("is_paid")
+  colorHex        String?  @default("#3174ad") @map("color_hex") @db.VarChar(10)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requests     LeaveRequest[]
+  balances     LeaveBalance[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id           Int     @id @default(autoincrement())
+  employeeId   Int     @map("employee_id")
+  leaveTypeId  Int     @map("leave_type_id")
+  year         Int
+  allocated    Decimal @default(0) @db.Decimal(5, 2)
+  used         Decimal @default(0) @db.Decimal(5, 2)
+
+  employee  Employee  @relation(fields: [employeeId],  references: [id], onDelete: Cascade)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([employeeId])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id              Int       @id @default(autoincrement())
+  organizationId  Int       @map("organization_id")
+  employeeId      Int       @map("employee_id")
+  leaveTypeId     Int       @map("leave_type_id")
+  startDate       DateTime  @map("start_date") @db.Date
+  endDate         DateTime  @map("end_date")   @db.Date
+  totalDays       Decimal   @map("total_days") @db.Decimal(5, 2)
+  reason          String?
+  status          String    @default("pending") @db.VarChar(20) // pending|approved|rejected|cancelled
+  approverId      Int?      @map("approver_id")
+  approverNote    String?   @map("approver_note")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation("LeaveRequester", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver     Employee?    @relation("LeaveApprover",  fields: [approverId], references: [id])
+  leaveType    LeaveType    @relation(fields: [leaveTypeId],  references: [id])
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("leave_requests")
+}
+
+model Holiday {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  name           String   @db.VarChar(255)
+  date           DateTime @db.Date
+  isOptional     Boolean  @default(false) @map("is_optional")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date, name])
+  @@index([organizationId])
+  @@map("holidays")
+}
+
+// =====================================================================
+// Payroll
+// =====================================================================
+
+model PayrollRun {
+  id             Int       @id @default(autoincrement())
+  organizationId Int       @map("organization_id")
+  periodStart    DateTime  @map("period_start") @db.Date
+  periodEnd      DateTime  @map("period_end")   @db.Date
+  status         String    @default("draft") @db.VarChar(20) // draft|finalized
+  totalAmount    Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
+  finalizedAt    DateTime? @map("finalized_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        PayrollItem[]
+
+  @@index([organizationId])
+  @@map("payroll_runs")
+}
+
+model PayrollItem {
+  id           Int     @id @default(autoincrement())
+  payrollRunId Int     @map("payroll_run_id")
+  employeeId   Int     @map("employee_id")
+  baseSalary   Decimal @default(0) @map("base_salary") @db.Decimal(12, 2)
+  allowances   Decimal @default(0) @db.Decimal(12, 2)
+  deductions   Decimal @default(0) @db.Decimal(12, 2)
+  netPay       Decimal @default(0) @map("net_pay")    @db.Decimal(12, 2)
+  notes        String?
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId],   references: [id], onDelete: Cascade)
+
+  @@unique([payrollRunId, employeeId])
+  @@index([payrollRunId])
+  @@map("payroll_items")
+}
+
+// =====================================================================
+// Announcements & notifications
+// =====================================================================
+
+model Announcement {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  title          String   @db.VarChar(255)
+  body           String
+  postedById     Int?     @map("posted_by_id")
+  isPinned       Boolean  @default(false) @map("is_pinned")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("announcements")
+}
+
+model Notification {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?     @map("organization_id")
+  userId         Int      @map("user_id")
+  type           String   @db.VarChar(50)
+  title          String   @db.VarChar(255)
+  body           String?
+  link           String?  @db.VarChar(255)
+  readAt         DateTime? @map("read_at") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("notifications")
+}
+
+// =====================================================================
+// Employee portal: news, documents, tasks (tenant-scoped)
+// =====================================================================
+
+model NewsPost {
+  id             Int      @id @default(autoincrement())
+  organizationId Int      @map("organization_id")
+  authorUserId   Int      @map("author_user_id")
+  title          String   @db.VarChar(500)
+  body           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([createdAt])
+  @@map("news_posts")
+}
+
+model EmployeeDocument {
+  id                 Int      @id @default(autoincrement())
+  organizationId   Int      @map("organization_id")
+  employeeId         Int      @map("employee_id")
+  title              String   @db.VarChar(255)
+  fileUrl            String   @map("file_url") @db.VarChar(2000)
+  category           String?  @db.VarChar(100)
+  uploadedByUserId Int?     @map("uploaded_by_user_id")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  uploadedBy   User?        @relation(fields: [uploadedByUserId], references: [id])
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@map("employee_documents")
+}
+
+model EmployeeTask {
+  id                   Int      @id @default(autoincrement())
+  organizationId       Int      @map("organization_id")
+  assigneeEmployeeId   Int      @map("assignee_employee_id")
+  title                String   @db.VarChar(500)
+  description          String?
+  category             String   @default("Custom Task") @db.VarChar(120)
+  dueDate              DateTime @map("due_date") @db.Date
+  status               String   @default("open") @db.VarChar(20) // open|completed
+  addedByEmployeeId    Int?     @map("added_by_employee_id")
+  relatedToEmployeeId  Int?     @map("related_to_employee_id")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignee     Employee     @relation("TaskAssignee", fields: [assigneeEmployeeId], references: [id], onDelete: Cascade)
+  addedBy      Employee?    @relation("TaskAddedBy", fields: [addedByEmployeeId], references: [id])
+  relatedTo    Employee?    @relation("TaskRelatedTo", fields: [relatedToEmployeeId], references: [id])
+
+  @@index([organizationId])
+  @@index([assigneeEmployeeId])
+  @@index([dueDate])
+  @@map("employee_tasks")
 }
 
 model Task {
@@ -171,8 +531,8 @@ model Task {
   createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz
 
-  assignedTo   User      @relation("AssignedTo", fields: [assignedToId], references: [id])
-  assignedBy   User      @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedTo User @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedBy User @relation("AssignedBy", fields: [assignedById], references: [id])
 
   @@map("tasks")
 }

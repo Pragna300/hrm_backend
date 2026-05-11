@@ -1,27 +1,17 @@
-function ok(res, data = null, message = 'OK') {
-  return res.json({ success: true, message, data });
+/**
+ * Tiny helpers so every route returns the same JSON envelope:
+ *   { success, message?, data?, ...extra }
+ */
+function ok(res, payload = {}, status = 200) {
+  return res.status(status).json({ success: true, ...payload });
 }
 
-function created(res, data = null, message = 'Created') {
-  return res.status(201).json({ success: true, message, data });
+function fail(res, message, status = 400, extra = {}) {
+  return res.status(status).json({ success: false, message, ...extra });
 }
 
-function fail(res, status, message, meta) {
-  return res.status(status).json({ success: false, message, ...(meta ? { meta } : {}) });
+function asyncHandler(fn) {
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
-function paginated(res, items, page, limit, total) {
-  return res.json({
-    success: true,
-    data: {
-      items,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
-}
-
-module.exports = { ok, created, fail, paginated };
-
+module.exports = { ok, fail, asyncHandler };

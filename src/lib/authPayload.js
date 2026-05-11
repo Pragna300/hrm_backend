@@ -1,4 +1,4 @@
-/** Prisma include tree for login /me responses. */
+/** Prisma include tree for login / me responses. */
 const userWithEmployeeInclude = {
   employee: {
     include: {
@@ -7,16 +7,23 @@ const userWithEmployeeInclude = {
       manager: { select: { firstName: true, lastName: true, employeeCode: true } },
     },
   },
+  organization: {
+    include: {
+      subscriptions: {
+        orderBy: { id: 'desc' },
+        take: 1,
+        include: { plan: true },
+      },
+    },
+  },
 };
 
-/**
- * Maps a User (with employee include) to the JSON shape consumed by the HR portal UI.
- * @param {import('@prisma/client').User & { employee?: object }} user
- */
+/** Maps a `User` (with the include above) to the JSON shape consumed by the UI. */
 function buildAuthUserPayload(user) {
   const emp = user.employee;
   const nameFromEmployee = emp ? `${emp.firstName} ${emp.lastName}`.trim() : '';
   const name = nameFromEmployee || user.email.split('@')[0] || 'User';
+  const subscription = user.organization?.subscriptions?.[0] || null;
 
   return {
     id: user.id,
@@ -28,13 +35,17 @@ function buildAuthUserPayload(user) {
     designation: emp?.designation ?? null,
     departmentName: emp?.department?.name ?? null,
     locationName: emp?.location?.name ?? null,
-    managerName:
-      emp?.manager != null
-        ? `${emp.manager.firstName} ${emp.manager.lastName}`.trim()
-        : null,
+    managerName: emp?.manager
+      ? `${emp.manager.firstName} ${emp.manager.lastName}`.trim()
+      : null,
     workEmail: emp?.workEmail || user.email,
     workPhone: emp?.workPhone || emp?.personalPhone || null,
-    organizationName: user.organization?.name || 'SHNOOR International LLC',
+    profilePhotoUrl: emp?.profilePhotoUrl || null,
+    organizationId: user.organizationId ?? null,
+    organizationName: user.organization?.name || (user.role === 'super_admin' ? 'Platform Admin' : ''),
+    organizationStatus: user.organization?.status ?? null,
+    plan: subscription?.plan ? { name: subscription.plan.name, slug: subscription.plan.slug } : null,
+    subscriptionStatus: subscription?.status ?? null,
     hasEmployeeProfile: Boolean(emp),
   };
 }

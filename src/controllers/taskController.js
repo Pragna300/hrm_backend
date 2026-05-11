@@ -15,13 +15,16 @@ async function createTask(req, res) {
     const targetUser = await prisma.user.findFirst({
       where: {
         id: Number(assigned_to),
-        createdByAdminId: req.user.userId,
-        role: 'employee'
-      }
+        organizationId: req.user.organizationId,
+        role: 'employee',
+      },
     });
 
     if (!targetUser) {
-      return res.status(403).json({ success: false, message: 'Unauthorized: You can only assign tasks to employees you created.' });
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized: assign tasks only to employees in your organization.',
+      });
     }
 
     const task = await prisma.task.create({
@@ -102,11 +105,10 @@ async function updateTaskStatus(req, res) {
     const task = await prisma.task.findUnique({ where: { id: taskId } });
     if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
 
-    // Authorization: Admin can update any task they created, Employee can update only their assigned tasks
-    if (req.user.role === 'employee' && task.assignedToId !== req.user.userId) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-    if (req.user.role === 'admin' && task.assignedById !== req.user.userId) {
+    const canEditAsAssignee = task.assignedToId === req.user.userId;
+    const canEditAsCreator =
+      (req.user.role === 'manager' || req.user.role === 'hr') && task.assignedById === req.user.userId;
+    if (!canEditAsAssignee && !canEditAsCreator) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
@@ -134,24 +136,25 @@ async function updateTaskStatus(req, res) {
  */
 async function getDashboardStats(req, res) {
   try {
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'manager' || req.user.role === 'hr') {
+      const orgId = req.user.organizationId;
       const [totalEmployees, totalTasks, pendingTasks, completedTasks, overdueTasks] = await Promise.all([
-        prisma.user.count({ where: { createdByAdminId: req.user.userId, role: 'employee' } }),
+        prisma.employee.count({ where: { organizationId: orgId } }),
         prisma.task.count({ where: { assignedById: req.user.userId } }),
         prisma.task.count({ where: { assignedById: req.user.userId, status: 'Pending' } }),
         prisma.task.count({ where: { assignedById: req.user.userId, status: 'Completed' } }),
-        prisma.task.count({ 
-          where: { 
-            assignedById: req.user.userId, 
+        prisma.task.count({
+          where: {
+            assignedById: req.user.userId,
             status: { not: 'Completed' },
-            dueDate: { lt: new Date() }
-          } 
-        })
+            dueDate: { lt: new Date() },
+          },
+        }),
       ]);
 
       return res.json({
         success: true,
-        data: { totalEmployees, totalTasks, pendingTasks, completedTasks, overdueTasks }
+        data: { totalEmployees, totalTasks, pendingTasks, completedTasks, overdueTasks },
       });
     } else {
       const [totalTasks, pendingTasks, completedTasks, upcomingDeadlines] = await Promise.all([

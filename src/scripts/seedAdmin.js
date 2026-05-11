@@ -1,52 +1,39 @@
 require('dotenv').config();
 
 const { prisma } = require('../config/database');
-const { createBootstrapAdmin } = require('../lib/adminBootstrap');
+const { createBootstrapSuperAdmin } = require('../lib/adminBootstrap');
+const { ensurePlansSeeded } = require('../lib/seedPlans');
 
-function resolveAdminSeedInput() {
+function resolveSuperAdminInput() {
   return {
-    email: process.env.ADMIN_EMAIL || 'admin@hrm.local',
-    password: process.env.ADMIN_PASSWORD || 'Admin@123',
-    name: process.env.ADMIN_NAME || 'System Admin',
+    email: process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'owner@hrm.local',
+    password: process.env.SUPER_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Owner@123',
+    name: process.env.SUPER_ADMIN_NAME || process.env.ADMIN_NAME || 'Platform Owner',
   };
 }
 
-async function runAdminSeed() {
-  const adminInput = resolveAdminSeedInput();
-  const result = await createBootstrapAdmin(adminInput);
-
-  if (!result.success) {
-    console.log(
-      JSON.stringify(
-        {
-          success: false,
-          message: result.message,
-          hint: 'Set ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME to customize values',
-        },
-        null,
-        2
-      )
-    );
-    process.exitCode = 1;
-    return;
-  }
+async function run() {
+  await ensurePlansSeeded();
+  const result = await createBootstrapSuperAdmin(resolveSuperAdminInput());
 
   console.log(
     JSON.stringify(
       {
-        success: true,
+        success: result.success,
         message: result.message,
-        data: result.data,
+        data: result.data || null,
       },
       null,
       2
     )
   );
+
+  if (!result.success) process.exitCode = 1;
 }
 
-runAdminSeed()
-  .catch((error) => {
-    console.error('Failed to seed admin user:', error?.message || error);
+run()
+  .catch((err) => {
+    console.error('Failed to seed super admin:', err?.message || err);
     process.exitCode = 1;
   })
   .finally(async () => {
