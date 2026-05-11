@@ -141,14 +141,21 @@ model User {
   lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
   failedAttempts Int       @default(0) @map("failed_attempts")
   lockedUntil    DateTime? @map("locked_until") @db.Timestamptz
-  organizationId Int?      @map("organization_id")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  organizationId   Int?      @map("organization_id")
+  createdByAdminId Int?      @map("created_by_admin_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   employee          Employee?
-  organization      Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   newsPosts         NewsPost[]
   documentsUploaded EmployeeDocument[]
+
+  createdMembers User[] @relation("UserToUser")
+  createdByAdmin User?  @relation("UserToUser", fields: [createdByAdminId], references: [id])
+
+  tasksAssigned Task[] @relation("AssignedTo")
+  tasksCreated  Task[] @relation("AssignedBy")
 
   @@index([organizationId])
   @@map("users")
@@ -292,10 +299,6 @@ model AttendanceSegment {
   @@index([checkIn])
   @@map("attendance_segments")
 }
-
-// =====================================================================
-// Leaves
-// =====================================================================
 
 model LeaveType {
   id              Int      @id @default(autoincrement())
@@ -511,4 +514,25 @@ model EmployeeTask {
   @@index([assigneeEmployeeId])
   @@index([dueDate])
   @@map("employee_tasks")
+}
+
+model Task {
+  id           Int       @id @default(autoincrement())
+  subject      String    @db.VarChar(255)
+  taskName     String    @map("task_name") @db.VarChar(255)
+  description  String?
+  assignedToId Int       @map("assigned_to_id")
+  assignedById Int       @map("assigned_by_id")
+  dateAssigned DateTime  @default(now()) @map("date_assigned") @db.Date
+  dueDate      DateTime  @map("due_date") @db.Date
+  status       String    @default("Pending") @db.VarChar(20) // Pending, In Progress, Completed
+  priority     String    @default("Medium") @db.VarChar(20) // Low, Medium, High
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz
+
+  assignedTo User @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedBy User @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@map("tasks")
 }

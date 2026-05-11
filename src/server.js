@@ -6,19 +6,21 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { ok } = require('./utils/response');
 const { ensurePlansSeeded } = require('./lib/seedPlans');
 
-const authRoutes        = require('./routes/authRoutes');
-const employeeRoutes    = require('./routes/employeeRoutes');
-const attendanceRoutes  = require('./routes/attendanceRoutes');
-const leaveRoutes       = require('./routes/leaveRoutes');
-const payrollRoutes     = require('./routes/payrollRoutes');
-const companyRoutes     = require('./routes/companyRoutes');
-const superAdminRoutes  = require('./routes/superAdminRoutes');
-const publicRoutes      = require('./routes/publicRoutes');
+const authRoutes = require('./routes/authRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const leaveRoutes = require('./routes/leaveRoutes');
+const payrollRoutes = require('./routes/payrollRoutes');
+const companyRoutes = require('./routes/companyRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 const {
   departmentsRouter,
   locationsRouter,
   shiftsRouter,
 } = require('./routes/orgStructureRoutes');
+
+const taskRoutes = require('./routes/taskRoutes');
 
 const app = express();
 
@@ -39,6 +41,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employee-portal', require('./routes/employeePortalRoutes'));
+app.use('/api/tasks', taskRoutes);
 
 app.use(errorHandler);
 

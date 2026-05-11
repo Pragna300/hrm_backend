@@ -48,10 +48,12 @@ async function sendMail({ to, subject, html, text }) {
       text,
     });
     if (!result?.messageId) {
+      console.error('Email failed: No messageId returned', result);
       return { sent: false, reason: 'Email provider did not return messageId' };
     }
     return { sent: true, id: result.messageId };
   } catch (error) {
+    console.error('SMTP Error:', error);
     return {
       sent: false,
       reason:
