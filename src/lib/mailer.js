@@ -44,6 +44,9 @@ async function sendEmployeeCredentialEmail({ to, fullName, loginEmail, plainPass
         user: env.SMTP_USER,
         pass: env.SMTP_PASS,
       },
+      tls: {
+        rejectUnauthorized: false
+      }
     });
 
     const fromAddress = env.SMTP_FROM || env.SMTP_USER;
@@ -75,11 +78,14 @@ async function sendEmployeeCredentialEmail({ to, fullName, loginEmail, plainPass
     });
 
     if (!result?.messageId) {
+      console.error('Email failed: No messageId returned', result);
       return { sent: false, reason: 'Email provider did not return messageId' };
     }
 
+    console.log('Email sent successfully:', result.messageId);
     return { sent: true, id: result.messageId };
   } catch (error) {
+    console.error('SMTP Error:', error);
     return {
       sent: false,
       reason:

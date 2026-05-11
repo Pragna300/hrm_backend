@@ -13,12 +13,15 @@ const { buildTodaySummary } = require('./lib/attendanceSummary');
 const { sendEmployeeCredentialEmail } = require('./lib/mailer');
 const { createBootstrapAdmin } = require('./lib/adminBootstrap');
 
+const taskRoutes = require('./routes/taskRoutes');
+
 const app = express();
 // Removed local prisma init, now using imported instance
 
-
 app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
+
+app.use('/api/tasks', taskRoutes);
 
 function signAuthToken(user) {
   return jwt.sign(
@@ -226,9 +229,14 @@ app.get('/api/auth/me', verifyJWT, async (req, res) => {
   }
 });
 
-app.get('/api/admin/employees', verifyJWT, rbac('admin'), async (_req, res) => {
+app.get('/api/admin/employees', verifyJWT, rbac('admin'), async (req, res) => {
   try {
     const employees = await prisma.employee.findMany({
+      where: {
+        user: {
+          createdByAdminId: req.user.userId
+        }
+      },
       orderBy: { createdAt: 'desc' },
       include: { user: { select: { id: true, email: true, role: true, isActive: true } } },
     });
@@ -240,6 +248,7 @@ app.get('/api/admin/employees', verifyJWT, rbac('admin'), async (_req, res) => {
 });
 
 app.post('/api/admin/employees', verifyJWT, rbac('admin'), async (req, res) => {
+  console.log('POST /api/admin/employees hit. Body:', req.body.email);
   try {
     const { email, password, firstName, lastName, ...employeeBody } = req.body;
     if (!email || !password || !firstName || !lastName) {
@@ -284,6 +293,7 @@ app.post('/api/admin/employees', verifyJWT, rbac('admin'), async (req, res) => {
           role: 'employee',
           isActive: true,
           organizationId: req.user.organizationId ?? null,
+          createdByAdminId: req.user.userId,
         },
       });
 
@@ -310,8 +320,8 @@ app.post('/api/admin/employees', verifyJWT, rbac('admin'), async (req, res) => {
     res.status(201).json({
       success: true,
       message: emailResult.sent
-        ? 'Employee created and credential email sent'
-        : `Employee created. Email not sent: ${emailResult.reason}`,
+        ? 'Employee created and credential email sent.'
+        : `Employee created. ERROR: Email not sent (${emailResult.reason}).`,
       data: created,
       emailSent: emailResult.sent,
     });
