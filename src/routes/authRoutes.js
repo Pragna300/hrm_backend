@@ -7,6 +7,8 @@ const router = Router();
 router.post('/register', ctrl.registerCompany);
 router.post('/login', ctrl.login);
 router.get('/me', verifyJWT, ctrl.me);
+router.post('/forgot-password', ctrl.forgotPassword);
+router.post('/reset-password', ctrl.resetPassword);
 router.post('/bootstrap-super-admin', ctrl.bootstrapSuperAdmin);
 
 module.exports = router;

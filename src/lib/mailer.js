@@ -122,6 +122,14 @@ const TEMPLATES = {
       html: `<p>Hi ${fullName},</p><p>Your payslip for <strong>${periodLabel}</strong> is now available. Net pay: <strong>${currency} ${netPay}</strong>.</p><p><a href="${portalLink('/employee/payslips')}">View payslip</a></p>`,
     };
   },
+
+  passwordReset({ fullName, resetLink }) {
+    return {
+      subject: 'Reset your HR Portal password',
+      text: `Hi ${fullName}, you requested to reset your password. Click here to reset: ${resetLink}. This link expires in 1 hour.`,
+      html: `<p>Hi ${fullName},</p><p>You requested to reset your password. Click the link below to set a new one:</p><p><a href="${resetLink}">Reset Password</a></p><p>This link will expire in 1 hour. If you did not request this, please ignore this email.</p>`,
+    };
+  },
 };
 
 const sendCredentials = (data) => sendMail({ to: data.to, ...TEMPLATES.credentials(data) });
@@ -129,6 +137,7 @@ const sendCompanyWelcome = (data) => sendMail({ to: data.to, ...TEMPLATES.compan
 const sendLeaveRequested = (data) => sendMail({ to: data.to, ...TEMPLATES.leaveRequested(data) });
 const sendLeaveDecided = (data) => sendMail({ to: data.to, ...TEMPLATES.leaveDecided(data) });
 const sendPayrollReady = (data) => sendMail({ to: data.to, ...TEMPLATES.payrollReady(data) });
+const sendPasswordReset = (data) => sendMail({ to: data.to, ...TEMPLATES.passwordReset(data) });
 
 module.exports = {
   canSendEmail,
@@ -138,6 +147,7 @@ module.exports = {
   sendLeaveRequested,
   sendLeaveDecided,
   sendPayrollReady,
+  sendPasswordReset,
   /** kept for backward compatibility with previous code */
   sendEmployeeCredentialEmail: sendCredentials,
 };

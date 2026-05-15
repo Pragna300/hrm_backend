@@ -141,6 +141,8 @@ model User {
   lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz
   failedAttempts Int       @default(0) @map("failed_attempts")
   lockedUntil    DateTime? @map("locked_until") @db.Timestamptz
+  resetToken     String?   @map("reset_token") @db.VarChar(255)
+  resetTokenExpires DateTime? @map("reset_token_expires") @db.Timestamptz
   organizationId   Int?      @map("organization_id")
   createdByAdminId Int?      @map("created_by_admin_id")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz

@@ -69,7 +69,7 @@ async function provisionCompany({
       },
     });
 
-    const employeeCode = await generateEmployeeCode(organization.id, 'MGR');
+    const employeeCode = await generateEmployeeCode(organization.id, 'MGR', tx);
     const user = await tx.user.create({
       data: {
         email: normalizedEmail,
@@ -95,6 +95,9 @@ async function provisionCompany({
     await ensureLeaveTypesForOrg(organization.id, tx);
 
     return { organization, user };
+  }, {
+    maxWait: 15000, // Wait for a connection for up to 15s
+    timeout: 30000  // Allow the transaction to run for up to 30s
   });
 
   // Best-effort welcome email — never blocks the request.
