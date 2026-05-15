@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { prisma } = require('../config/database');
 const { ok, fail, asyncHandler } = require('../utils/response');
 const { signAuthToken } = require('../lib/token');
@@ -9,7 +10,11 @@ const {
   registerCompanySchema,
   loginSchema,
   bootstrapSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } = require('../validators/authSchemas');
+const { sendPasswordReset } = require('../lib/mailer');
+const { env } = require('../config/env');
 
 const registerCompany = asyncHandler(async (req, res) => {
   const parsed = registerCompanySchema.safeParse(req.body);
@@ -72,4 +77,78 @@ const bootstrapSuperAdmin = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { registerCompany, login, me, bootstrapSuperAdmin };
+const forgotPassword = asyncHandler(async (req, res) => {
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, parsed.error.issues[0]?.message || 'Invalid email', 400);
+
+  const { email } = parsed.data;
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase().trim() },
+    include: { employee: true },
+  });
+
+  // Security: always return "ok" even if user doesn't exist to prevent email enumeration
+  if (!user) {
+    return ok(res, { message: 'If an account exists with this email, a reset link has been sent.' });
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 3600000); // 1 hour
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      resetToken: token,
+      resetTokenExpires: expires,
+    },
+  });
+
+  const resetLink = `${env.FRONTEND_URL}/reset-password?token=${token}`;
+  await sendPasswordReset({
+    to: user.email,
+    fullName: user.employee ? `${user.employee.firstName} ${user.employee.lastName}` : 'User',
+    resetLink,
+  });
+
+  return ok(res, { message: 'If an account exists with this email, a reset link has been sent.' });
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, parsed.error.issues[0]?.message || 'Invalid input', 400);
+
+  const { token, password } = parsed.data;
+
+  const user = await prisma.user.findFirst({
+    where: {
+      resetToken: token,
+      resetTokenExpires: { gt: new Date() },
+    },
+  });
+
+  if (!user) {
+    return fail(res, 'Invalid or expired reset token', 400);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      resetToken: null,
+      resetTokenExpires: null,
+    },
+  });
+
+  return ok(res, { message: 'Password has been reset successfully. You can now log in.' });
+});
+
+module.exports = {
+  registerCompany,
+  login,
+  me,
+  bootstrapSuperAdmin,
+  forgotPassword,
+  resetPassword,
+};

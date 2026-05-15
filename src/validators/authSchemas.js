@@ -23,8 +23,19 @@ const bootstrapSchema = z.object({
   name:     z.string().optional(),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Valid email required'),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
 module.exports = {
   registerCompanySchema,
   loginSchema,
   bootstrapSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 };
