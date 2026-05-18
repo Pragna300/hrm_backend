@@ -9,6 +9,7 @@ const {
   createEmployeeSchema,
   updateEmployeeSchema,
 } = require('../validators/employeeSchemas');
+const notificationSvc = require('../services/notifications');
 
 const list = asyncHandler(async (req, res) => {
   const employees = await listEmployees(req.organizationId);
@@ -24,6 +25,17 @@ const create = asyncHandler(async (req, res) => {
     organizationId: req.organizationId,
     body: parsed.data,
   });
+
+  const approvers = await notificationSvc.findUsersByRoles(req.organizationId, ['manager', 'hr']);
+  await notificationSvc.createNotificationsForUsers({
+    userIds: approvers.map((u) => u.id),
+    organizationId: req.organizationId,
+    title: 'New Employee Added',
+    body: `A new employee (${employee.firstName} ${employee.lastName}) was added to your organization.`,
+    type: 'employee',
+    link: '/company/employees',
+  });
+
   return ok(
     res,
     {

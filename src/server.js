@@ -1,9 +1,7 @@
+const http = require('http');
 const { env } = require('./config/env');
-const express = require('express');
-const cors = require('cors');
-
-const { errorHandler } = require('./middleware/errorHandler');
-const { ok } = require('./utils/response');
+const { createApp } = require('./app');
+const { initNotificationSocket } = require('./lib/notificationSocket');
 const { ensurePlansSeeded } = require('./lib/seedPlans');
 
 const authRoutes = require('./routes/authRoutes');
@@ -19,15 +17,10 @@ const {
   locationsRouter,
   shiftsRouter,
 } = require('./routes/orgStructureRoutes');
-
 const taskRoutes = require('./routes/taskRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
-const app = express();
-
-app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
-app.use(express.json({ limit: '1mb' }));
-
-app.get('/health', (_req, res) => ok(res, { ok: true }));
+const app = createApp();
 
 app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
@@ -42,11 +35,13 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employee-portal', require('./routes/employeePortalRoutes'));
 app.use('/api/tasks', taskRoutes);
-
-app.use(errorHandler);
+app.use('/api/notifications', notificationRoutes);
 
 const PORT = env.PORT || 5000;
-app.listen(PORT, async () => {
+const server = http.createServer(app);
+initNotificationSocket(server);
+
+server.listen(PORT, async () => {
   console.log(`[backend] running on :${PORT}`);
   try {
     await ensurePlansSeeded();

@@ -1,4 +1,5 @@
 const { prisma } = require('../config/database');
+const notificationSvc = require('../services/notifications');
 
 /**
  * Admin: Create a new task and assign to an employee
@@ -18,6 +19,9 @@ async function createTask(req, res) {
         organizationId: req.user.organizationId,
         role: 'employee',
       },
+      include: {
+        employee: true
+      }
     });
 
     if (!targetUser) {
@@ -40,6 +44,38 @@ async function createTask(req, res) {
         status: 'Pending'
       }
     });
+
+    await notificationSvc.createNotification({
+      userId: targetUser.id,
+      organizationId: req.user.organizationId,
+      title: 'New Task Assigned',
+      body: `You were assigned a new task: ${task.taskName}`,
+      type: 'task',
+      link: '/employee/tasks',
+    });
+
+    // Send email notification to employee
+    const creatorUser = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: { employee: true }
+    });
+    const creatorName = creatorUser?.employee 
+      ? `${creatorUser.employee.firstName} ${creatorUser.employee.lastName}`
+      : creatorUser?.email || 'Admin';
+
+    const employeeName = targetUser.employee 
+      ? `${targetUser.employee.firstName} ${targetUser.employee.lastName}`
+      : targetUser.email;
+
+    const { sendTaskAssigned } = require('../lib/mailer');
+    sendTaskAssigned({
+      to: targetUser.email,
+      employeeName,
+      taskName: task.taskName,
+      dueDate: new Date(due_date).toLocaleDateString(),
+      priority: task.priority,
+      creatorName,
+    }).catch(err => console.error('Failed to send task assigned email:', err));
 
     res.status(201).json({ success: true, message: 'Task created successfully', data: task });
   } catch (err) {
@@ -123,6 +159,19 @@ async function updateTaskStatus(req, res) {
       where: { id: taskId },
       data: updateData
     });
+
+    const targetUserId = canEditAsCreator ? task.assignedToId : task.assignedById;
+    const receiver = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (receiver) {
+      await notificationSvc.createNotification({
+        userId: receiver.id,
+        organizationId: req.user.organizationId,
+        title: `Task ${updated.status}`,
+        body: `${req.user.role === 'employee' ? 'Your task was' : 'A task assigned to you was'} updated to ${updated.status}.`,
+        type: 'task_status',
+        link: '/employee/tasks',
+      });
+    }
 
     res.json({ success: true, message: 'Task status updated', data: updated });
   } catch (err) {

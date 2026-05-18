@@ -1,5 +1,6 @@
 const { ok, fail, asyncHandler } = require('../utils/response');
 const svc = require('../services/employeePortal');
+const notificationSvc = require('../services/notifications');
 
 const listNews = asyncHandler(async (req, res) => {
   const data = await svc.listNews(req.organizationId);
@@ -16,6 +17,17 @@ const postNews = asyncHandler(async (req, res) => {
     title: String(title).trim(),
     body: String(body).trim(),
   });
+
+  const recipients = await notificationSvc.findUsersByRoles(req.organizationId, ['manager', 'hr', 'team_lead', 'employee']);
+  await notificationSvc.createNotificationsForUsers({
+    userIds: recipients.map((u) => u.id),
+    organizationId: req.organizationId,
+    title: `Announcement: ${row.title}`,
+    body: row.body,
+    type: 'announcement',
+    link: '/employee/news',
+  });
+
   return ok(res, { data: row }, 201);
 });
 

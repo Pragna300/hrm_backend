@@ -130,6 +130,14 @@ const TEMPLATES = {
       html: `<p>Hi ${fullName},</p><p>You requested to reset your password. Click the link below to set a new one:</p><p><a href="${resetLink}">Reset Password</a></p><p>This link will expire in 1 hour. If you did not request this, please ignore this email.</p>`,
     };
   },
+
+  taskAssigned({ employeeName, taskName, dueDate, priority, creatorName }) {
+    return {
+      subject: `New Task Assigned: ${taskName}`,
+      text: `Hi ${employeeName},\n\nYou have been assigned a new task: "${taskName}" by ${creatorName}.\n\nPriority: ${priority}\nDue Date: ${dueDate}\n\nLogin to the portal to view details: ${portalLink('/employee/tasks')}`,
+      html: `<p>Hi ${employeeName},</p><p>You have been assigned a new task: <strong>${taskName}</strong> by <strong>${creatorName}</strong>.</p><p><strong>Priority:</strong> ${priority}<br/><strong>Due Date:</strong> ${dueDate}</p><p><a href="${portalLink('/employee/tasks')}">View task details</a></p>`,
+    };
+  },
 };
 
 const sendCredentials = (data) => sendMail({ to: data.to, ...TEMPLATES.credentials(data) });
@@ -138,6 +146,7 @@ const sendLeaveRequested = (data) => sendMail({ to: data.to, ...TEMPLATES.leaveR
 const sendLeaveDecided = (data) => sendMail({ to: data.to, ...TEMPLATES.leaveDecided(data) });
 const sendPayrollReady = (data) => sendMail({ to: data.to, ...TEMPLATES.payrollReady(data) });
 const sendPasswordReset = (data) => sendMail({ to: data.to, ...TEMPLATES.passwordReset(data) });
+const sendTaskAssigned = (data) => sendMail({ to: data.to, ...TEMPLATES.taskAssigned(data) });
 
 module.exports = {
   canSendEmail,
@@ -148,6 +157,7 @@ module.exports = {
   sendLeaveDecided,
   sendPayrollReady,
   sendPasswordReset,
+  sendTaskAssigned,
   /** kept for backward compatibility with previous code */
   sendEmployeeCredentialEmail: sendCredentials,
 };
