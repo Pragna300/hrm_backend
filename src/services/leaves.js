@@ -87,8 +87,15 @@ async function listLeaveRequests({ organizationId, employeeId = null, status = n
 
 async function createLeaveRequest({ organizationId, employeeId, body }) {
   const leaveTypeId = Number(body.leaveTypeId);
-  const startDate = startOfDayInTz(body.startDate);
-  const endDate = startOfDayInTz(body.endDate);
+  const startInput = body.startDate ? new Date(body.startDate) : null;
+  const endInput = body.endDate ? new Date(body.endDate) : null;
+
+  if (!startInput || Number.isNaN(startInput.getTime()) || !endInput || Number.isNaN(endInput.getTime())) {
+    throw Object.assign(new Error('Invalid startDate or endDate'), { statusCode: 400 });
+  }
+
+  const startDate = startOfDayInTz(startInput);
+  const endDate = startOfDayInTz(endInput);
   if (endDate < startDate) {
     throw Object.assign(new Error('endDate must be on or after startDate'), { statusCode: 400 });
   }

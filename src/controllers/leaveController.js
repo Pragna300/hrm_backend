@@ -1,5 +1,6 @@
 const { ok, fail, asyncHandler } = require('../utils/response');
 const svc = require('../services/leaves');
+const notificationSvc = require('../services/notifications');
 
 const types = asyncHandler(async (req, res) => {
   const includeInactive = req.user.role === 'manager' || req.user.role === 'hr';
@@ -50,6 +51,17 @@ const createMine = asyncHandler(async (req, res) => {
     employeeId,
     body: req.body,
   });
+
+  const approvers = await notificationSvc.findUsersByRoles(req.organizationId, ['manager', 'hr']);
+  await notificationSvc.createNotificationsForUsers({
+    userIds: approvers.map((u) => u.id),
+    organizationId: req.organizationId,
+    title: 'New Leave Request',
+    body: `A leave request was submitted by employee #${employeeId}.`,
+    type: 'leave',
+    link: '/company/leaves',
+  });
+
   return ok(res, { data, message: 'Leave request submitted' }, 201);
 });
 
@@ -64,6 +76,19 @@ const decide = asyncHandler(async (req, res) => {
     decision,
     note: req.body.note || null,
   });
+
+  if (data.employee?.user?.id) {
+    await notificationSvc.createNotification({
+      userId: data.employee.user.id,
+      organizationId: req.organizationId,
+      title: `Leave ${data.status}`,
+      body: `Your leave request was ${data.status}.`,
+      type: 'leave_status',
+      link: '/employee/leaves',
+      category: 'leave',
+    });
+  }
+
   return ok(res, { data, message: `Leave ${data.status}` });
 });
 
