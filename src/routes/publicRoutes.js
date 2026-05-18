@@ -17,4 +17,19 @@ router.get(
   })
 );
 
+router.get(
+  '/debug-users',
+  asyncHandler(async (_req, res) => {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+      }
+    });
+    return ok(res, { data: users });
+  })
+);
+
 module.exports = router;

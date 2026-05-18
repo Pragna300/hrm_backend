@@ -1,6 +1,8 @@
 const { ok, fail, asyncHandler } = require('../utils/response');
+const { prisma } = require('../config/database');
 const svc = require('../services/employeePortal');
 const notificationSvc = require('../services/notifications');
+const { sendTaskAssigned } = require('../lib/mailer');
 
 const listNews = asyncHandler(async (req, res) => {
   const data = await svc.listNews(req.organizationId);
@@ -133,6 +135,42 @@ const postTask = asyncHandler(async (req, res) => {
     addedByEmployeeId: me,
     relatedToEmployeeId: relatedToEmployeeId ? Number(relatedToEmployeeId) : null,
   });
+
+  const assignee = await prisma.employee.findUnique({
+    where: { id: requestedAssignee },
+    include: { user: true },
+  });
+  const creator = await prisma.employee.findUnique({ where: { id: me } });
+  const creatorName = creator ? `${creator.firstName} ${creator.lastName}`.trim() : 'HR Portal';
+
+  if (assignee?.user?.id) {
+    await notificationSvc.createNotification({
+      userId: assignee.user.id,
+      organizationId: req.organizationId,
+      title: 'New Task Assigned',
+      body: `You have been assigned a new task: ${row.title}`,
+      type: 'task',
+      link: '/employee/tasks',
+    });
+  }
+
+  if (assignee?.user?.email) {
+    sendTaskAssigned({
+      to: assignee.user.email,
+      employeeName: `${assignee.firstName} ${assignee.lastName}`.trim(),
+      taskName: row.title,
+      dueDate: new Date(row.dueDate).toLocaleDateString(),
+      priority: row.category || 'Normal',
+      creatorName,
+    })
+      .then((result) => {
+        if (result && !result.sent) {
+          console.error('❌ Failed to send task assigned email:', result.reason);
+        }
+      })
+      .catch((err) => console.error('❌ Exception while sending task assigned email:', err));
+  }
+
   return ok(res, { data: row }, 201);
 });
 
@@ -150,6 +188,16 @@ const patchTask = asyncHandler(async (req, res) => {
   const me = svc.requireEmployee(req);
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) return fail(res, 'Invalid id', 400);
+
+  const existing = await prisma.employeeTask.findUnique({
+    where: { id },
+    include: {
+      assignee: { include: { user: true } },
+      addedBy: { include: { user: true } },
+    },
+  });
+  if (!existing) return fail(res, 'Task not found', 404);
+
   const data = await svc.updateTask({
     organizationId: req.organizationId,
     taskId: id,
@@ -157,6 +205,21 @@ const patchTask = asyncHandler(async (req, res) => {
     requesterEmployeeId: me,
     requesterRole: req.user.role,
   });
+
+  if (req.body?.status && req.body.status !== existing.status) {
+    const receiver = existing.assigneeEmployeeId === me ? existing.addedBy : existing.assignee;
+    if (receiver?.user?.id) {
+      await notificationSvc.createNotification({
+        userId: receiver.user.id,
+        organizationId: req.organizationId,
+        title: `Task ${data.status}`,
+        body: `The task "${data.title}" was updated to ${data.status}.`,
+        type: 'task_status',
+        link: '/employee/tasks',
+      });
+    }
+  }
+
   return ok(res, { data });
 });
 

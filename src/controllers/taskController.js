@@ -6,9 +6,11 @@ const notificationSvc = require('../services/notifications');
  */
 async function createTask(req, res) {
   try {
+    console.log('📥 Received Create Task Request:', req.body);
     const { subject, task_name, description, assigned_to, date_assigned, due_date, priority } = req.body;
 
     if (!subject || !task_name || !assigned_to || !due_date) {
+      console.warn('⚠️ Task creation rejected: Required fields missing in payload', { subject, task_name, assigned_to, due_date });
       return res.status(400).json({ success: false, message: 'Required fields missing' });
     }
 
@@ -25,6 +27,7 @@ async function createTask(req, res) {
     });
 
     if (!targetUser) {
+      console.warn('⚠️ Task creation rejected: Target user not found or unauthorized', { assigned_to, orgId: req.user.organizationId });
       return res.status(403).json({
         success: false,
         message: 'Unauthorized: assign tasks only to employees in your organization.',
@@ -75,7 +78,15 @@ async function createTask(req, res) {
       dueDate: new Date(due_date).toLocaleDateString(),
       priority: task.priority,
       creatorName,
-    }).catch(err => console.error('Failed to send task assigned email:', err));
+    })
+      .then(result => {
+        if (result && !result.sent) {
+          console.error('❌ Failed to send task assigned email:', result.reason);
+        } else {
+          console.log('📧 Task assigned email sent successfully to:', targetUser.email);
+        }
+      })
+      .catch(err => console.error('❌ Exception while sending task assigned email:', err));
 
     res.status(201).json({ success: true, message: 'Task created successfully', data: task });
   } catch (err) {
