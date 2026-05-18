@@ -27,6 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/company', companyRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/admin/employees', employeeRoutes); // Support frontend's /api/admin/employees requests
 app.use('/api/departments', departmentsRouter);
 app.use('/api/locations', locationsRouter);
 app.use('/api/shifts', shiftsRouter);
