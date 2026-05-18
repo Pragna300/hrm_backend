@@ -1,7 +1,12 @@
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { env } = require('../config/env');
 
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+
 function canSendEmail() {
+  // Use Resend if available (production), otherwise fall back to SMTP
+  if (env.RESEND_API_KEY) return true;
   return Boolean(env.SMTP_USER && env.SMTP_PASS);
 }
 
@@ -31,7 +36,7 @@ function normalizeRecipientList(to) {
  */
 async function sendMail({ to, subject, html, text }) {
   if (!canSendEmail()) {
-    return { sent: false, reason: 'SMTP_USER or SMTP_PASS is missing' };
+    return { sent: false, reason: 'RESEND_API_KEY or SMTP_USER/SMTP_PASS is missing' };
   }
   const recipients = normalizeRecipientList(to);
   if (recipients.length === 0) {
@@ -39,6 +44,22 @@ async function sendMail({ to, subject, html, text }) {
   }
 
   try {
+    // Use Resend if available (production on Vercel)
+    if (resend) {
+      const result = await resend.emails.send({
+        from: env.SMTP_FROM || 'noreply@shnoor.com',
+        to: recipients,
+        subject,
+        html: html || text,
+      });
+      if (result.error) {
+        console.error('Resend Error:', result.error);
+        return { sent: false, reason: `Resend failed: ${result.error.message}` };
+      }
+      return { sent: true, id: result.data?.id };
+    }
+
+    // Fall back to nodemailer SMTP (local development)
     const transporter = buildTransporter();
     const result = await transporter.sendMail({
       from: env.SMTP_FROM || env.SMTP_USER,
@@ -53,12 +74,10 @@ async function sendMail({ to, subject, html, text }) {
     }
     return { sent: true, id: result.messageId };
   } catch (error) {
-    console.error('SMTP Error:', error);
+    console.error('Email Error:', error);
     return {
       sent: false,
-      reason:
-        pickErrorMessage(error) +
-        '. For Gmail, use an App Password (not your normal Gmail password).',
+      reason: pickErrorMessage(error),
     };
   }
 }

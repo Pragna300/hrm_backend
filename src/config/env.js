@@ -23,6 +23,7 @@ const EnvSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().default('khaleel@shnoor.com'),
+  RESEND_API_KEY: z.string().optional(),
 });
 
 const env = EnvSchema.parse(process.env);
