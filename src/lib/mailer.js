@@ -30,6 +30,14 @@ function normalizeRecipientList(to) {
   return list.map((value) => String(value || '').trim()).filter(Boolean);
 }
 
+function getMailerFromAddress() {
+  return env.RESEND_FROM || env.SMTP_FROM || 'noreply@shnoor.com';
+}
+
+function isBlockedResendSender(email) {
+  return /@(gmail|googlemail)\.com$/i.test(email);
+}
+
 /**
  * Generic helper. Returns `{ sent: boolean, reason?: string, id?: string }`
  * and never throws — callers can decide whether mail failure is fatal.
@@ -46,17 +54,35 @@ async function sendMail({ to, subject, html, text }) {
   try {
     // Use Resend if available (production on Vercel)
     if (resend) {
+      const fromAddress = getMailerFromAddress();
+      if (!fromAddress) {
+        return {
+          sent: false,
+          reason: 'RESEND_FROM or SMTP_FROM must be configured for Resend. Use a verified sender email.',
+        };
+      }
+      if (isBlockedResendSender(fromAddress)) {
+        return {
+          sent: false,
+          reason:
+            'Resend cannot send from gmail.com/googlemail.com. Use a verified custom domain or Resend verified sender email.',
+        };
+      }
+
       const result = await resend.emails.send({
-        from: env.SMTP_FROM || 'noreply@shnoor.com',
+        from: fromAddress,
         to: recipients,
         subject,
         html: html || text,
       });
-      if (result.error) {
+      if (result?.error) {
         console.error('Resend Error:', result.error);
-        return { sent: false, reason: `Resend failed: ${result.error.message}` };
+        const guidance = /domain is not verified/i.test(result.error.message)
+          ? ' Please verify your sender domain or use a Resend verified sender.'
+          : '';
+        return { sent: false, reason: `Resend failed: ${result.error.message}.${guidance}` };
       }
-      return { sent: true, id: result.data?.id };
+      return { sent: true, id: result.id || result.data?.id };
     }
 
     // Fall back to nodemailer SMTP (local development)
