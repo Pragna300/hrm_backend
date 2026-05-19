@@ -19,6 +19,7 @@ const {
 } = require('./routes/orgStructureRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const documentRoutes = require('./routes/documentRoutes');
 
 const app = createApp();
 
@@ -37,17 +38,18 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/employee-portal', require('./routes/employeePortalRoutes'));
 app.use('/api/tasks', taskRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/documents', documentRoutes);
 
 const PORT = env.PORT || 5000;
 const server = http.createServer(app);
 initNotificationSocket(server);
 
 server.listen(PORT, async () => {
-  console.log(`[backend] running on :${PORT}`);
   try {
     await ensurePlansSeeded();
     console.log('[backend] default plans ensured');
   } catch (err) {
     console.error('[backend] could not seed default plans:', err.message);
   }
+  console.log(`[backend] fully started and running on port: ${PORT}`);
 });
