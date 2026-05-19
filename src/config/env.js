@@ -22,7 +22,8 @@ const EnvSchema = z.object({
     .transform((value) => value === 'true'),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().default('khaleel@shnoor.com'),
+  SMTP_FROM: z.string().optional(),
+  RESEND_FROM: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
 });
 
