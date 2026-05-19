@@ -18,6 +18,9 @@ function createApp() {
   );
   app.use(express.json());
   app.use(cookieParser(env.COOKIE_SECRET));
+  
+  const path = require('path');
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   app.get('/health', (req, res) => res.json({ ok: true }));
 

@@ -478,16 +478,20 @@ model NewsPost {
 
 model EmployeeDocument {
   id                 Int      @id @default(autoincrement())
-  organizationId   Int      @map("organization_id")
-  employeeId         Int      @map("employee_id")
+  organizationId     Int      @map("organization_id")
+  employeeId         Int?     @map("employee_id")
   title              String   @db.VarChar(255)
+  description        String?
   fileUrl            String   @map("file_url") @db.VarChar(2000)
+  fileType           String?  @map("file_type") @db.VarChar(50)
+  fileSize           Int?     @map("file_size")
   category           String?  @db.VarChar(100)
-  uploadedByUserId Int?     @map("uploaded_by_user_id")
+  uploadedByUserId   Int?     @map("uploaded_by_user_id")
+  isOrganizationWide Boolean  @default(true) @map("is_organization_wide")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   uploadedBy   User?        @relation(fields: [uploadedByUserId], references: [id])
 
   @@index([organizationId])
