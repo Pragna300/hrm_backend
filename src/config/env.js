@@ -1,12 +1,15 @@
 require('dotenv').config();
 const { z } = require('zod');
 
+const parseNumberEnv = (value) => {
+  if (value === '' || value === undefined || value === null) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+};
+
 const EnvSchema = z.object({
   NODE_ENV: z.string().default('development'),
-  PORT: z.preprocess((value) => {
-    if (value === '' || value === undefined || value === null) return undefined;
-    return value;
-  }, z.coerce.number().int().positive().default(5000)),
+  PORT: z.preprocess(parseNumberEnv, z.number().int().positive().default(5000)),
 
   DATABASE_URL: z.string().optional(),
 
@@ -18,10 +21,7 @@ const EnvSchema = z.object({
   COOKIE_SECRET: z.string().default('dev_cookie_secret_change_me'),
 
   SMTP_HOST: z.string().default('smtp.gmail.com'),
-  SMTP_PORT: z.preprocess((value) => {
-    if (value === '' || value === undefined || value === null) return undefined;
-    return value;
-  }, z.coerce.number().int().positive().default(587)),
+  SMTP_PORT: z.preprocess(parseNumberEnv, z.number().int().positive().default(587)),
   SMTP_SECURE: z.preprocess((value) => {
     if (value === '' || value === undefined || value === null) return 'false';
     return value;
