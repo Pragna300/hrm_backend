@@ -181,10 +181,89 @@ async function deactivateEmployee({ organizationId, employeeId }) {
   });
 }
 
+async function getEmployeeById({ organizationId, employeeId }) {
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, organizationId },
+    include: {
+      ...EMPLOYEE_INCLUDE,
+      documents: {
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  });
+  if (!employee) {
+    throw Object.assign(new Error('Employee not found'), { statusCode: 404 });
+  }
+  return employee;
+}
+
+async function updateEmployeeRole({ organizationId, employeeId, role, updatedBy }) {
+  const existing = await prisma.employee.findFirst({
+    where: { id: employeeId, organizationId },
+    include: { user: true },
+  });
+  if (!existing) {
+    throw Object.assign(new Error('Employee not found'), { statusCode: 404 });
+  }
+
+  const previousRole = existing.role || existing.designation || 'No Role';
+  
+  let history = [];
+  if (existing.roleHistory) {
+    try {
+      history = typeof existing.roleHistory === 'string'
+        ? JSON.parse(existing.roleHistory)
+        : JSON.parse(JSON.stringify(existing.roleHistory));
+    } catch (e) {
+      history = [];
+    }
+  }
+  history.push({
+    from: previousRole,
+    to: role,
+    changedAt: new Date().toISOString(),
+    changedBy: updatedBy || 'Manager',
+  });
+
+  return prisma.$transaction(async (tx) => {
+    if (existing.userId) {
+      let systemRole = 'employee';
+      if (role === 'Admin' || role === 'Manager') systemRole = 'manager';
+      else if (role === 'HR') systemRole = 'hr';
+      else if (role === 'Team Lead') systemRole = 'team_lead';
+
+      await tx.user.update({
+        where: { id: existing.userId },
+        data: { role: systemRole },
+      });
+    }
+
+    return tx.employee.update({
+      where: { id: employeeId },
+      data: {
+        role,
+        designation: role,
+        promotionDate: new Date(),
+        previousRole,
+        roleHistory: history,
+      },
+      include: {
+        ...EMPLOYEE_INCLUDE,
+        documents: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+  });
+}
+
 module.exports = {
   listEmployees,
   createEmployee,
   updateEmployee,
   deactivateEmployee,
+  getEmployeeById,
+  updateEmployeeRole,
   EMPLOYEE_INCLUDE,
 };
+

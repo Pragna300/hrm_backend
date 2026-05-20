@@ -203,6 +203,12 @@ model Employee {
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  role                   String?   @db.VarChar(100)
+  promotionDate          DateTime? @map("promotion_date") @db.Date
+  previousRole           String?   @map("previous_role") @db.VarChar(100)
+  roleHistory            Json?     @map("role_history")
+
+
   user               User?               @relation(fields: [userId], references: [id])
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   department         Department?         @relation(fields: [departmentId], references: [id])

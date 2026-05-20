@@ -4,6 +4,8 @@ const {
   createEmployee,
   updateEmployee,
   deactivateEmployee,
+  getEmployeeById,
+  updateEmployeeRole,
 } = require('../services/employees');
 const {
   createEmployeeSchema,
@@ -76,4 +78,44 @@ const remove = asyncHandler(async (req, res) => {
   return ok(res, { data: result, message: 'Employee deactivated' });
 });
 
-module.exports = { list, create, update, remove };
+const get = asyncHandler(async (req, res) => {
+  const employeeId = Number(req.params.id);
+  if (!Number.isFinite(employeeId)) return fail(res, 'Invalid employee id', 400);
+  const employee = await getEmployeeById({
+    organizationId: req.organizationId,
+    employeeId,
+  });
+  return ok(res, { data: employee });
+});
+
+const updateRole = asyncHandler(async (req, res) => {
+  const employeeId = Number(req.params.id);
+  if (!Number.isFinite(employeeId)) return fail(res, 'Invalid employee id', 400);
+
+  const { role } = req.body;
+  if (!role) return fail(res, 'Role is required', 400);
+
+  const validRoles = [
+    'Intern',
+    'Junior Developer',
+    'Software Engineer',
+    'Senior Software Engineer',
+    'Team Lead',
+    'HR',
+  ];
+  if (!validRoles.includes(role)) {
+    return fail(res, 'Invalid role value', 400);
+  }
+
+  const employee = await updateEmployeeRole({
+    organizationId: req.organizationId,
+    employeeId,
+    role,
+    updatedBy: req.user.name || req.user.email,
+  });
+
+  return ok(res, { success: true, data: employee, message: 'Employee role updated successfully' });
+});
+
+module.exports = { list, create, update, remove, get, updateRole };
+
