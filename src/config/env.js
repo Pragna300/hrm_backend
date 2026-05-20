@@ -3,7 +3,10 @@ const { z } = require('zod');
 
 const EnvSchema = z.object({
   NODE_ENV: z.string().default('development'),
-  PORT: z.coerce.number().int().positive().default(5000),
+  PORT: z.preprocess((value) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    return value;
+  }, z.coerce.number().int().positive().default(5000)),
 
   DATABASE_URL: z.string().optional(),
 
@@ -15,11 +18,17 @@ const EnvSchema = z.object({
   COOKIE_SECRET: z.string().default('dev_cookie_secret_change_me'),
 
   SMTP_HOST: z.string().default('smtp.gmail.com'),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_SECURE: z
-    .string()
-    .default('false')
-    .transform((value) => value === 'true'),
+  SMTP_PORT: z.preprocess((value) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    return value;
+  }, z.coerce.number().int().positive().default(587)),
+  SMTP_SECURE: z.preprocess((value) => {
+    if (value === '' || value === undefined || value === null) return 'false';
+    return value;
+  },
+    z.string()
+      .default('false')
+      .transform((value) => value === 'true')),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
