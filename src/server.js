@@ -20,6 +20,7 @@ const {
 const taskRoutes = require('./routes/taskRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const documentRoutes = require('./routes/documentRoutes');
+const reportsRoutes = require('./routes/reportsRoutes');
 
 const app = createApp();
 
@@ -39,17 +40,34 @@ app.use('/api/employee-portal', require('./routes/employeePortalRoutes'));
 app.use('/api/tasks', taskRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/reports', reportsRoutes);
 
 const PORT = env.PORT || 5000;
 const server = http.createServer(app);
 initNotificationSocket(server);
 
+const fs = require('fs');
+const path = require('path');
+const logPath = path.join(__dirname, '../db_debug_status.txt');
+
 server.listen(PORT, async () => {
+  let logContent = '';
   try {
+    const { prisma } = require('./config/database');
+    logContent += `Server started at ${new Date().toISOString()}\n`;
+    logContent += `DATABASE_URL: ${process.env.DATABASE_URL ? 'PRESENT' : 'MISSING'}\n`;
+    
+    // Test simple query
+    const orgCount = await prisma.organization.count();
+    logContent += `Connection test success: found ${orgCount} organizations.\n`;
+    
     await ensurePlansSeeded();
+    logContent += `ensurePlansSeeded executed successfully.\n`;
     console.log('[backend] default plans ensured');
   } catch (err) {
+    logContent += `ERROR: ${err.message}\nSTACK: ${err.stack}\n`;
     console.error('[backend] could not seed default plans:', err.message);
   }
+  fs.writeFileSync(logPath, logContent);
   console.log(`[backend] fully started and running on port: ${PORT}`);
 });

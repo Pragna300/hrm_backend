@@ -1,9 +1,17 @@
 require('dotenv').config();
+process.env.DATABASE_URL = process.env.DATABASE_URL ?? process.env.DIRECT_URL;
 const { z } = require('zod');
 
-const parseNumberEnv = (value) => {
+const normalizeEnvString = (value) => {
   if (value === '' || value === undefined || value === null) return undefined;
-  const num = Number(value);
+  const str = String(value).trim();
+  return str.replace(/^['"](.*)['"]$/s, '$1');
+};
+
+const parseNumberEnv = (value) => {
+  const normalized = normalizeEnvString(value);
+  if (normalized === undefined) return undefined;
+  const num = Number(normalized);
   return Number.isFinite(num) ? num : undefined;
 };
 
@@ -11,7 +19,10 @@ const EnvSchema = z.object({
   NODE_ENV: z.string().default('development'),
   PORT: z.preprocess(parseNumberEnv, z.number().int().positive().default(5000)),
 
-  DATABASE_URL: z.string().optional(),
+  DATABASE_URL: z.preprocess(normalizeEnvString, z.string().min(1, { message: 'DATABASE_URL is required' }).refine(
+    (value) => /^(postgres|postgresql):\/\//.test(value),
+    { message: 'DATABASE_URL must start with postgres:// or postgresql://' }
+  )),
 
   JWT_SECRET: z.string().default('shnoor_secret_2026'),
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
