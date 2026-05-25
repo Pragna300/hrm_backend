@@ -30,6 +30,25 @@ const exportCsv = asyncHandler(async (req, res) => {
   return res.status(200).send(csv);
 });
 
+const getDepartmentsReport = asyncHandler(async (req, res) => {
+  const departments = await reportsService.getDepartmentsReport(req.organizationId);
+  return ok(res, { data: departments });
+});
+
+const getDepartmentEmployees = asyncHandler(async (req, res) => {
+  const { departmentId } = req.params;
+  const page = Number(req.query.page) || 1;
+  const pageSize = Number(req.query.pageSize) || 15;
+  const search = req.query.search || '';
+
+  const result = await reportsService.getDepartmentEmployees(req.organizationId, departmentId, { page, pageSize, search });
+  if (!result.department) {
+    return fail(res, 'Department not found', 404);
+  }
+
+  return ok(res, { data: result });
+});
+
 const getDayWiseSummary = asyncHandler(async (req, res) => {
   const { fromDate, toDate } = req.query;
   const data = await reportsService.getDayWiseSummary(req.organizationId, { fromDate, toDate });
@@ -41,5 +60,7 @@ module.exports = {
   generateReport,
   exportCsv,
   getDayWiseSummary,
+  getDepartmentsReport,
+  getDepartmentEmployees,
 };
 

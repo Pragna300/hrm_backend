@@ -160,7 +160,8 @@ model User {
   tasksAssigned Task[] @relation("AssignedTo")
   tasksCreated  Task[] @relation("AssignedBy")
 
-  @@index([organizationId])
+  createdDepartments Department[] @relation("CreatedDepartments")
+
   @@map("users")
 }
 
@@ -181,10 +182,15 @@ model Employee {
   personalPhone          String?   @map("personal_phone") @db.VarChar(25)
   emergencyName          String?   @map("emergency_name") @db.VarChar(255)
   emergencyPhone         String?   @map("emergency_phone") @db.VarChar(25)
-  departmentId           Int?      @map("department_id")
   locationId             Int?      @map("location_id")
   shiftId                Int?      @map("shift_id")
-  managerId              Int?      @map("manager_id")
+  
+  // New many-to-many relation
+  departments    EmployeeDepartment[]
+  // Keep old single department for backward compatibility
+  // department    Department? @relation(fields: [departmentId], references: [id])
+  // End of Employee fields
+
   designation            String?   @db.VarChar(255)
   employmentType         String?   @default("full_time") @map("employment_type") @db.VarChar(50)
   employmentStatus       String?   @default("active") @map("employment_status") @db.VarChar(30)
@@ -208,13 +214,15 @@ model Employee {
   previousRole           String?   @map("previous_role") @db.VarChar(100)
   roleHistory            Json?     @map("role_history")
 
-
+  managerId          Int?                @map("manager_id")
   user               User?               @relation(fields: [userId], references: [id])
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  department         Department?         @relation(fields: [departmentId], references: [id])
   location           Location?           @relation(fields: [locationId], references: [id])
   shift              Shift?              @relation(fields: [shiftId], references: [id])
   manager            Employee?           @relation("EmployeeToEmployee", fields: [managerId], references: [id])
+  assignedTasks      EmployeeTask[]      @relation("TaskAssignee")
+  addedTasks         EmployeeTask[]      @relation("TaskAddedBy")
+  relatedTasks       EmployeeTask[]      @relation("TaskRelatedTo")
   subordinates       Employee[]          @relation("EmployeeToEmployee")
   attendanceSegments AttendanceSegment[]
   leaveRequests      LeaveRequest[]      @relation("LeaveRequester")
@@ -222,9 +230,6 @@ model Employee {
   leaveBalances      LeaveBalance[]
   payrollItems       PayrollItem[]
   documents          EmployeeDocument[]
-  tasksAssigned      EmployeeTask[] @relation("TaskAssignee")
-  tasksAdded         EmployeeTask[] @relation("TaskAddedBy")
-  tasksRelatedTo     EmployeeTask[] @relation("TaskRelatedTo")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])
@@ -240,6 +245,8 @@ model Department {
   id             Int      @id @default(autoincrement())
   organizationId Int      @map("organization_id")
   name           String   @db.VarChar(255)
+  createdById    Int?     @map("created_by_id")
+  manager        User?    @relation("CreatedDepartments", fields: [createdById], references: [id])
   parentId       Int?     @map("parent_id")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -247,11 +254,20 @@ model Department {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   parent       Department?  @relation("DepartmentToDepartment", fields: [parentId], references: [id])
   children     Department[] @relation("DepartmentToDepartment")
-  employees    Employee[]
+  employees    EmployeeDepartment[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
   @@map("departments")
+}
+
+model EmployeeDepartment {
+  employeeId   Int
+  departmentId Int
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  @@id([employeeId, departmentId])
+  @@index([departmentId])
 }
 
 model Location {

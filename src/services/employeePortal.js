@@ -41,7 +41,7 @@ const ASSIGNABLE_SELECT = {
   lastName: true,
   employeeCode: true,
   designation: true,
-  department: { select: { name: true } },
+  departments: { include: { department: { select: { name: true } } } },
   manager: { select: { id: true, firstName: true, lastName: true, employeeCode: true } },
 };
 
@@ -214,7 +214,7 @@ const TASK_INCLUDE = {
       firstName: true,
       lastName: true,
       employeeCode: true,
-      department: { select: { name: true } },
+      departments: { include: { department: { select: { name: true } } } },
     },
   },
   relatedTo: {
@@ -224,7 +224,7 @@ const TASK_INCLUDE = {
       lastName: true,
       employeeCode: true,
       profilePhotoUrl: true,
-      department: { select: { name: true } },
+      departments: { include: { department: { select: { name: true } } } },
     },
   },
   assignee: {
@@ -234,7 +234,7 @@ const TASK_INCLUDE = {
       lastName: true,
       employeeCode: true,
       profilePhotoUrl: true,
-      department: { select: { name: true } },
+      departments: { include: { department: { select: { name: true } } } },
       manager: { select: { id: true, firstName: true, lastName: true, employeeCode: true } },
     },
   },
@@ -410,7 +410,7 @@ async function getOrgChart(organizationId) {
         lastName: true,
         employeeCode: true,
         designation: true,
-        departmentId: true,
+        departments: { include: { department: { select: { id: true, name: true } } } },
         managerId: true,
         profilePhotoUrl: true,
       },
@@ -446,7 +446,7 @@ async function updateSelfProfile({ employeeId, organizationId, body }) {
     where: { id: employeeId, organizationId },
     data,
     include: {
-      department: { select: { id: true, name: true } },
+      departments: { include: { department: { select: { id: true, name: true } } } },
       location: { select: { id: true, name: true } },
       manager: { select: { firstName: true, lastName: true, employeeCode: true } },
     },
@@ -473,7 +473,7 @@ async function getEmployeeProfile(employeeId, organizationId) {
   const emp = await prisma.employee.findFirst({
     where: { id: employeeId, organizationId },
     include: {
-      department: true,
+      departments: { include: { department: true } },
       location: true,
       shift: true,
       manager: { select: { id: true, firstName: true, lastName: true, employeeCode: true } },

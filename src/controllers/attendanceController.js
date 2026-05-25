@@ -97,7 +97,7 @@ const teamToday = asyncHandler(async (req, res) => {
   const date = attendanceCalendarDate();
   const employees = await prisma.employee.findMany({
     where: { organizationId: req.organizationId },
-    select: { id: true, firstName: true, lastName: true, employeeCode: true, departmentId: true },
+    select: { id: true, firstName: true, lastName: true, employeeCode: true, departments: { include: { department: { select: { id: true, name: true } } } } },
   });
   const segments = await prisma.attendanceSegment.findMany({
     where: { employeeId: { in: employees.map((e) => e.id) }, date },

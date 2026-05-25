@@ -2,7 +2,12 @@
 const userWithEmployeeInclude = {
   employee: {
     include: {
-      department: { select: { id: true, name: true } },
+      // Many-to-many departments via EmployeeDepartment
+      departments: {
+        include: {
+          department: { select: { id: true, name: true } },
+        },
+      },
       location: { select: { id: true, name: true } },
       manager: { select: { firstName: true, lastName: true, employeeCode: true } },
     },
@@ -33,7 +38,7 @@ function buildAuthUserPayload(user) {
     employeeId: emp?.id ?? null,
     employeeCode: emp?.employeeCode ?? null,
     designation: emp?.designation ?? null,
-    departmentName: emp?.department?.name ?? null,
+    departmentName: emp?.departments?.[0]?.department?.name ?? null,
     locationName: emp?.location?.name ?? null,
     managerName: emp?.manager
       ? `${emp.manager.firstName} ${emp.manager.lastName}`.trim()
