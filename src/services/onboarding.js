@@ -24,7 +24,7 @@ async function provisionCompany({
   const normalizedEmail = String(email).trim().toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
-    throw Object.assign(new Error('Email already registered'), { statusCode: 400 });
+    throw Object.assign(new Error('Email already exists'), { statusCode: 409 });
   }
 
   const passwordHash = await bcrypt.hash(String(password), 10);

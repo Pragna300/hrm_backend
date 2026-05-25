@@ -42,6 +42,10 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/reports', reportsRoutes);
 
+// Centralised error handler must be registered after all routes
+const { errorHandler } = require('./middleware/errorHandler');
+app.use(errorHandler);
+
 const PORT = env.PORT || 5000;
 const server = http.createServer(app);
 initNotificationSocket(server);

@@ -73,7 +73,7 @@ function buildReportRow(employee, dateKey, segs) {
       employeeId: employee.id,
       employeeCode: employee.employeeCode,
       employeeName: `${employee.firstName} ${employee.lastName}`,
-      department: employee.department?.name ?? null,
+      department: employee.departments?.[0]?.department?.name ?? null,
       designation: employee.designation ?? null,
       date: dateKey,
       day: dateValue.toLocaleDateString('en-US', { weekday: 'long' }),
@@ -139,7 +139,7 @@ function buildReportRow(employee, dateKey, segs) {
     employeeId: employee.id,
     employeeCode: employee.employeeCode,
     employeeName: `${employee.firstName} ${employee.lastName}`,
-    department: employee.department?.name ?? null,
+    department: employee.departments?.[0]?.department?.name ?? null,
     designation: employee.designation ?? null,
     date: dateKey,
     day: dateValue.toLocaleDateString('en-US', { weekday: 'long' }),
@@ -175,7 +175,7 @@ async function fetchReportData(orgId, filters) {
 
   const employees = await prisma.employee.findMany({
     where: buildEmployeeFilters(orgId, { employeeIds, department, shift }),
-    include: { department: true, shift: true, user: true },
+    include: { departments: { include: { department: true } }, shift: true, user: true },
     orderBy: { firstName: 'asc' },
   });
 
@@ -189,7 +189,7 @@ async function fetchReportData(orgId, filters) {
       employeeId: { in: employeeIdsList },
       date: { gte: from, lte: to },
     },
-    include: { employee: { include: { department: true, shift: true } } },
+    include: { employee: { include: { departments: { include: { department: true } }, shift: true } } },
     orderBy: [{ employeeId: 'asc' }, { date: 'asc' }, { checkIn: 'asc' }],
   });
 
@@ -287,7 +287,7 @@ async function getOrganizationAttendanceOverview(orgId, { fromDate, toDate } = {
 
   const employees = await prisma.employee.findMany({
     where: { organizationId: orgId },
-    include: { department: true, shift: true, user: true },
+    include: { departments: { include: { department: true } }, shift: true, user: true },
   });
 
   if (employees.length === 0) {
@@ -310,7 +310,7 @@ async function getOrganizationAttendanceOverview(orgId, { fromDate, toDate } = {
       employeeId: { in: employeeIdsList },
       date: { gte: from, lte: to },
     },
-    include: { employee: { include: { department: true, shift: true } } },
+    include: { employee: { include: { departments: { include: { department: true } }, shift: true } } },
     orderBy: [{ employeeId: 'asc' }, { date: 'asc' }, { checkIn: 'asc' }],
   });
 
@@ -347,7 +347,7 @@ async function getDayWiseSummary(orgId, { fromDate, toDate } = {}) {
 
   const employees = await prisma.employee.findMany({
     where: { organizationId: orgId },
-    include: { department: true, shift: true },
+    include: { departments: { include: { department: true } }, shift: true },
   });
 
   if (employees.length === 0) return [];
@@ -358,7 +358,7 @@ async function getDayWiseSummary(orgId, { fromDate, toDate } = {}) {
       employeeId: { in: employeeIdsList },
       date: { gte: from, lte: to },
     },
-    include: { employee: { include: { department: true, shift: true } } },
+    include: { employee: { include: { departments: { include: { department: true } }, shift: true } } },
     orderBy: [{ employeeId: 'asc' }, { date: 'asc' }, { checkIn: 'asc' }],
   });
 
@@ -398,9 +398,113 @@ async function getDayWiseSummary(orgId, { fromDate, toDate } = {}) {
   return result;
 }
 
+async function getDepartmentsReport(orgId) {
+  const departments = await prisma.department.findMany({
+    where: { organizationId: orgId },
+    orderBy: { name: 'asc' },
+    include: { 
+      _count: { select: { employees: true } },
+      manager: { include: { employee: true } }
+    },
+  });
+
+  return departments.map((department) => {
+    let managerName = 'Unassigned';
+    if (department.manager?.employee) {
+      managerName = `${department.manager.employee.firstName} ${department.manager.employee.lastName}`.trim();
+    } else if (department.manager?.email) {
+      managerName = department.manager.email.split('@')[0];
+    }
+
+    return {
+      id: department.id,
+      name: department.name,
+      totalEmployees: department._count.employees,
+      managerName,
+      isActive: department.isActive,
+      createdAt: department.createdAt,
+    };
+  });
+}
+
+async function getDepartmentEmployees(orgId, departmentId, options = {}) {
+  const { search = '', page = 1, pageSize = 15 } = options;
+  const department = await prisma.department.findFirst({
+    where: { id: Number(departmentId), organizationId: orgId },
+    select: { id: true, name: true },
+  });
+
+  if (!department) {
+    return {
+      department: null,
+      employees: [],
+      summary: { totalEmployees: 0, activeEmployees: 0, inactiveEmployees: 0 },
+      page,
+      pageSize,
+      total: 0,
+    };
+  }
+
+  const where = {
+    organizationId: orgId,
+    departments: { some: { departmentId: department.id } },
+  };
+
+  if (search) {
+    where.OR = [
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { employeeCode: { contains: search, mode: 'insensitive' } },
+      { workEmail: { contains: search, mode: 'insensitive' } },
+      { personalEmail: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const total = await prisma.employee.count({ where });
+  const activeEmployees = await prisma.employee.count({
+    where: {
+      ...where,
+      employmentStatus: { equals: 'active', mode: 'insensitive' },
+    },
+  });
+
+  const employees = await prisma.employee.findMany({
+    where,
+    include: { user: true },
+    orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+
+  return {
+    department,
+    employees: employees.map((employee) => ({
+      id: employee.id,
+      employeeCode: employee.employeeCode,
+      name: `${employee.firstName} ${employee.lastName}`,
+      email: employee.user?.email || employee.workEmail || employee.personalEmail || '',
+      position: employee.designation || 'N/A',
+      employmentStatus: employee.employmentStatus || 'unknown',
+      managerId: employee.managerId,
+      profilePhotoUrl: employee.profilePhotoUrl,
+      role: employee.user?.role || 'employee',
+    })),
+    summary: {
+      totalEmployees: total,
+      activeEmployees,
+      inactiveEmployees: total - activeEmployees,
+    },
+    page,
+    pageSize,
+    total,
+  };
+}
+
 module.exports = {
   generateAttendanceReport,
   generateAttendanceCsv,
   getOrganizationAttendanceOverview,
   getDayWiseSummary,
+  getDepartmentsReport,
+  getDepartmentEmployees,
 };

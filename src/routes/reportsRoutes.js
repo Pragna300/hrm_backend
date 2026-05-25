@@ -12,6 +12,8 @@ router.get('/attendance', ctrl.getAttendanceOverview);
 router.post('/attendance', ctrl.generateReport);
 router.get('/attendance/export', ctrl.exportCsv);
 router.get('/day-summary', ctrl.getDayWiseSummary);
+router.get('/departments', ctrl.getDepartmentsReport);
+router.get('/departments/:departmentId', ctrl.getDepartmentEmployees);
 
 module.exports = router;
 

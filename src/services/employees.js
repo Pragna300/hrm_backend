@@ -5,7 +5,7 @@ const { sendCredentials } = require('../lib/mailer');
 
 const EMPLOYEE_INCLUDE = {
   user: { select: { id: true, email: true, role: true, isActive: true } },
-  department: { select: { id: true, name: true } },
+  departments: { include: { department: { select: { id: true, name: true } } } },
   location: { select: { id: true, name: true } },
   shift: { select: { id: true, name: true } },
   manager: { select: { id: true, firstName: true, lastName: true } },
@@ -26,7 +26,6 @@ function buildEmployeeData(input) {
     personalPhone:           input.personalPhone ?? null,
     emergencyName:           input.emergencyName ?? null,
     emergencyPhone:          input.emergencyPhone ?? null,
-    departmentId:            input.departmentId ?? null,
     locationId:              input.locationId ?? null,
     shiftId:                 input.shiftId ?? null,
     managerId:               input.managerId ?? null,
@@ -89,7 +88,12 @@ async function createEmployee({ organizationId, body }) {
       data: { email: emailLower, passwordHash, role, isActive: true, organizationId },
     });
     return tx.employee.create({
-      data: { ...employeeData, organizationId, userId: user.id },
+      data: { 
+        ...employeeData, 
+        organizationId, 
+        userId: user.id,
+        ...(body.departmentId ? { departments: { create: [{ departmentId: Number(body.departmentId) }] } } : {})
+      },
       include: EMPLOYEE_INCLUDE,
     });
   });
@@ -151,9 +155,17 @@ async function updateEmployee({ organizationId, employeeId, body }) {
         await tx.user.update({ where: { id: existing.userId }, data: userUpdate });
       }
     }
+    const employeeUpdateData = { ...merged };
+    if (body.departmentId !== undefined) {
+      employeeUpdateData.departments = {
+        deleteMany: {},
+        ...(body.departmentId ? { create: [{ departmentId: Number(body.departmentId) }] } : {})
+      };
+    }
+
     return tx.employee.update({
       where: { id: employeeId },
-      data: merged,
+      data: employeeUpdateData,
       include: EMPLOYEE_INCLUDE,
     });
   });

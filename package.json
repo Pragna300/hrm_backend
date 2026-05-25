@@ -2,9 +2,10 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
+    "scripts": {
     "start": "npx prisma db push --accept-data-loss && node src/server.js",
     "dev": "nodemon src/server.js",
+    "prisma:migrate": "npx prisma migrate dev --name add_employee_department_relation",
     "build": "prisma generate",
     "seed:owner": "node src/scripts/seedAdmin.js",
     "seed:admin": "node src/scripts/seedAdmin.js",

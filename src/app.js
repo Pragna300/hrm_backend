@@ -4,7 +4,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 const { env } = require('./config/env');
-const { errorHandler } = require('./middleware/errorHandler');
 
 function createApp() {
   const app = express();
@@ -23,8 +22,6 @@ function createApp() {
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   app.get('/health', (req, res) => res.json({ ok: true }));
-
-  app.use(errorHandler);
 
   return app;
 }
