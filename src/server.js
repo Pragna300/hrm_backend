@@ -21,12 +21,15 @@ const taskRoutes = require('./routes/taskRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const reportsRoutes = require('./routes/reportsRoutes');
+const { publicRouter: contactInquiryPublicRouter, adminRouter: contactInquiryAdminRouter } = require('./routes/contactInquiryRoutes');
 
 const app = createApp();
 
 app.use('/api/public', publicRoutes);
+app.use('/api/contact-us', contactInquiryPublicRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/admin/contact-inquiries', contactInquiryAdminRouter);
 app.use('/api/company', companyRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/admin/employees', employeeRoutes); // Support frontend's /api/admin/employees requests

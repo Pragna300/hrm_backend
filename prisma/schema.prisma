@@ -116,6 +116,7 @@ model Organization {
   newsPosts         NewsPost[]
   employeeDocuments EmployeeDocument[]
   employeeTasks     EmployeeTask[]
+  contactInquiries  ContactInquiry[]
 
   @@map("organization")
 }
@@ -161,6 +162,8 @@ model User {
   tasksCreated  Task[] @relation("AssignedBy")
 
   createdDepartments Department[] @relation("CreatedDepartments")
+
+  contactInquiriesAssigned ContactInquiry[]
 
   @@map("users")
 }
@@ -564,4 +567,61 @@ model Task {
   assignedBy User @relation("AssignedBy", fields: [assignedById], references: [id])
 
   @@map("tasks")
+}
+
+// =====================================================================
+// Support / Contact Inquiries (Platform Level & Tenant-Scoped options)
+// =====================================================================
+
+model ContactInquiry {
+  id                Int             @id @default(autoincrement())
+  organizationId    Int?            @map("organization_id")
+  organization      Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  name              String          @db.VarChar(255)
+  email             String          @db.VarChar(255)
+  organizationName  String?         @map("organization_name") @db.VarChar(255)
+  inquiryType       InquiryType     @map("inquiry_type")
+  subject           String?         @db.VarChar(500)
+  message           String
+
+  status            InquiryStatus   @default(PENDING)
+  priority          InquiryPriority @default(MEDIUM)
+
+  adminNotes        String?         @map("admin_notes")
+  assignedAdminId   Int?            @map("assigned_admin_id")
+  assignedAdmin     User?           @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status])
+  @@index([inquiryType])
+  @@index([createdAt])
+  @@map("contact_inquiries")
+}
+
+enum InquiryType {
+  GENERAL
+  DEMO_REQUEST
+  TECHNICAL_SUPPORT
+  EMPLOYEE_ISSUE
+  PAYROLL_ISSUE
+  ATTENDANCE_ISSUE
+  FEATURE_REQUEST
+  BUG_REPORT
+  PARTNERSHIP
+}
+
+enum InquiryStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum InquiryPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }

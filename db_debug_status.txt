@@ -1,4 +1,0 @@
-Server started at 2026-05-25T15:29:36.472Z
-DATABASE_URL: PRESENT
-Connection test success: found 1 organizations.
-ensurePlansSeeded executed successfully.
