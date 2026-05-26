@@ -183,6 +183,38 @@ const TEMPLATES = {
       html: `<p>Hi ${employeeName},</p><p>You have been assigned a new task: <strong>${taskName}</strong> by <strong>${creatorName}</strong>.</p><p><strong>Priority:</strong> ${priority}<br/><strong>Due Date:</strong> ${dueDate}</p><p><a href="${portalLink('/employee/tasks')}">View task details</a></p>`,
     };
   },
+
+  supportInquiryAcknowledgment({ name }) {
+    return {
+      subject: 'Thank you for contacting Shnoor HRM Support',
+      text: `Hi ${name},\n\nThank you for contacting Shnoor HRM Support. Your support request has been submitted successfully. Our team will contact you soon.\n\nBest regards,\nShnoor HRM Team`,
+      html: `<p>Hi ${name},</p><p>Thank you for contacting Shnoor HRM Support. Your support request has been submitted successfully. Our team will contact you soon.</p><br/><p>Best regards,<br/>Shnoor HRM Team</p>`,
+    };
+  },
+
+  supportInquirySubmittedToAdmin({ inquiryId, name, inquiryType, subject }) {
+    return {
+      subject: `New Support Inquiry [#${inquiryId}] - ${inquiryType}`,
+      text: `A new support inquiry has been submitted.\n\nID: ${inquiryId}\nName: ${name}\nType: ${inquiryType}\nSubject: ${subject}\n\nPlease check the admin dashboard for details: ${portalLink('/owner/contact-inquiries')}`,
+      html: `<p>A new support inquiry has been submitted.</p><ul><li><strong>ID:</strong> ${inquiryId}</li><li><strong>Name:</strong> ${name}</li><li><strong>Type:</strong> ${inquiryType}</li><li><strong>Subject:</strong> ${subject}</li></ul><p><a href="${portalLink('/owner/contact-inquiries')}">View in Admin Dashboard</a></p>`,
+    };
+  },
+
+  supportInquiryResolvedUser({ name, inquiryId, subject }) {
+    return {
+      subject: `Update on your Support Inquiry [#${inquiryId}]`,
+      text: `Hi ${name},\n\nYour support inquiry regarding "${subject || 'General Inquiry'}" has been marked as resolved by our team.\n\nIf you need further assistance, please submit a new request on our contact page.\n\nBest regards,\nShnoor HRM Team`,
+      html: `<p>Hi ${name},</p><p>Your support inquiry regarding <strong>"${subject || 'General Inquiry'}"</strong> has been marked as resolved by our team.</p><p>If you need further assistance, please submit a new request on our contact page.</p><br/><p>Best regards,<br/>Shnoor HRM Team</p>`,
+    };
+  },
+
+  supportInquiryResolvedAdmin({ inquiryId, name, inquiryType, subject, resolvedBy }) {
+    return {
+      subject: `Support Inquiry Resolved [#${inquiryId}] - ${inquiryType}`,
+      text: `A support inquiry has been marked as resolved.\n\nID: ${inquiryId}\nUser: ${name}\nType: ${inquiryType}\nSubject: ${subject}\nResolved By: ${resolvedBy || 'Admin'}\n\nPlease check the admin dashboard for details: ${portalLink('/owner/contact-inquiries')}`,
+      html: `<p>A support inquiry has been marked as resolved.</p><ul><li><strong>ID:</strong> ${inquiryId}</li><li><strong>User:</strong> ${name}</li><li><strong>Type:</strong> ${inquiryType}</li><li><strong>Subject:</strong> ${subject}</li><li><strong>Resolved By:</strong> ${resolvedBy || 'Admin'}</li></ul><p><a href="${portalLink('/owner/contact-inquiries')}">View in Admin Dashboard</a></p>`,
+    };
+  },
 };
 
 const sendCredentials = (data) => sendMail({ to: data.to, ...TEMPLATES.credentials(data) });
@@ -192,6 +224,10 @@ const sendLeaveDecided = (data) => sendMail({ to: data.to, ...TEMPLATES.leaveDec
 const sendPayrollReady = (data) => sendMail({ to: data.to, ...TEMPLATES.payrollReady(data) });
 const sendPasswordReset = (data) => sendMail({ to: data.to, ...TEMPLATES.passwordReset(data) });
 const sendTaskAssigned = (data) => sendMail({ to: data.to, ...TEMPLATES.taskAssigned(data) });
+const sendSupportInquiryAcknowledgment = (data) => sendMail({ to: data.to, ...TEMPLATES.supportInquiryAcknowledgment(data) });
+const sendSupportInquirySubmittedToAdmin = (data) => sendMail({ to: data.to, ...TEMPLATES.supportInquirySubmittedToAdmin(data) });
+const sendSupportInquiryResolvedUser = (data) => sendMail({ to: data.to, ...TEMPLATES.supportInquiryResolvedUser(data) });
+const sendSupportInquiryResolvedAdmin = (data) => sendMail({ to: data.to, ...TEMPLATES.supportInquiryResolvedAdmin(data) });
 
 module.exports = {
   canSendEmail,
@@ -203,6 +239,10 @@ module.exports = {
   sendPayrollReady,
   sendPasswordReset,
   sendTaskAssigned,
+  sendSupportInquiryAcknowledgment,
+  sendSupportInquirySubmittedToAdmin,
+  sendSupportInquiryResolvedUser,
+  sendSupportInquiryResolvedAdmin,
   /** kept for backward compatibility with previous code */
   sendEmployeeCredentialEmail: sendCredentials,
 };
