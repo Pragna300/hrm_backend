@@ -52,6 +52,7 @@ async function provisionCompany({
         sector: sector || null,
         contactPhone: contactPhone || null,
         contactEmail: normalizedEmail,
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 

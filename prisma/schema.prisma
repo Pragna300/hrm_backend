@@ -97,6 +97,7 @@ model Organization {
   contactEmail    String?  @map("contact_email") @db.VarChar(255)
   contactPhone    String?  @map("contact_phone") @db.VarChar(50)
   status          String   @default("active") @db.VarChar(30) // active|suspended|cancelled
+  trialEndsAt     DateTime? @map("trial_ends_at") @db.Timestamptz
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
