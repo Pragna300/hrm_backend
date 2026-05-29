@@ -3,7 +3,7 @@ const { prisma } = require('../config/database');
 
 function initTrialExpirationJob() {
   // Run automatically every day at midnight server time
-  cron.schedule('0 0 * * *', async () => {
+  cron.schedule('* * * * *', async () => {
     try {
       const now = new Date();
 
