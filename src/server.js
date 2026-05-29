@@ -3,6 +3,7 @@ const { env } = require('./config/env');
 const { createApp } = require('./app');
 const { initNotificationSocket } = require('./lib/notificationSocket');
 const { ensurePlansSeeded } = require('./lib/seedPlans');
+const { initTrialExpirationJob } = require('./jobs/trialExpirationJob');
 
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -76,5 +77,6 @@ server.listen(PORT, async () => {
     console.error('[backend] could not seed default plans:', err.message);
   }
   fs.writeFileSync(logPath, logContent);
+  initTrialExpirationJob();
   console.log(`[backend] fully started and running on port: ${PORT}`);
 });

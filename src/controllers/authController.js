@@ -44,7 +44,7 @@ const login = asyncHandler(async (req, res) => {
   if (!passwordOk) return fail(res, 'Invalid credentials', 400);
 
   if (user.organizationId && user.organization?.status === 'suspended') {
-    return fail(res, 'Your company account is suspended. Contact platform support.', 403);
+    return fail(res, 'Your free trial is ended. Please contact with the admin through the contacts page for the necessary actions', 403, { code: 'COMPANY_SUSPENDED' });
   }
 
   await prisma.user.update({
