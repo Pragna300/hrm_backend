@@ -34,6 +34,7 @@ model Subscription {
   id             Int          @id @default(autoincrement())
   organizationId Int          @map("organization_id")
   planId         Int          @map("plan_id")
+  stripeSubscriptionId String? @map("stripe_subscription_id")
   status         String       @default("trialing") @db.VarChar(30)
   billingCycle   String       @default("monthly") @map("billing_cycle") @db.VarChar(20)
   unitAmount     Decimal      @map("unit_amount") @db.Decimal(10, 2)
@@ -76,7 +77,7 @@ model Organization {
   id                Int                @id @default(autoincrement())
   name              String             @db.VarChar(255)
   slug              String             @unique @db.VarChar(120)
-  logoUrl           String?            @map("logo_url")
+  stripeCustomerId String? @map("stripe_customer_id")
   timezone          String?            @default("Asia/Kolkata") @db.VarChar(100)
   currency          String?            @default("INR") @db.VarChar(10)
   fiscalYearStart   Int?               @default(4) @map("fiscal_year_start")
@@ -92,7 +93,7 @@ model Organization {
   announcements     Announcement[]
   contactInquiries  ContactInquiry[]
   departments       Department[]
-  employeeDocuments EmployeeDocument[]
+  employeeDocuments ArchivedDocument[]
   employeeTasks     EmployeeTask[]
   employees         Employee[]
   holidays          Holiday[]
@@ -128,7 +129,7 @@ model User {
   updatedAt                DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   contactInquiriesAssigned ContactInquiry[]
   createdDepartments       Department[]       @relation("CreatedDepartments")
-  documentsUploaded        EmployeeDocument[]
+  documentsUploaded        ArchivedDocument[]
   employee                 Employee?
   newsPosts                NewsPost[]
   tasksCreated             Task[]             @relation("AssignedBy")
@@ -183,7 +184,7 @@ model Employee {
   managerId              Int?                 @map("manager_id")
   departments            EmployeeDepartment[]
   attendanceSegments     AttendanceSegment[]
-  documents              EmployeeDocument[]
+  documents              ArchivedDocument[]
   addedTasks             EmployeeTask[]       @relation("TaskAddedBy")
   assignedTasks          EmployeeTask[]       @relation("TaskAssignee")
   relatedTasks           EmployeeTask[]       @relation("TaskRelatedTo")
@@ -433,7 +434,7 @@ model NewsPost {
   @@map("news_posts")
 }
 
-model EmployeeDocument {
+model ArchivedDocument {
   id                 Int          @id @default(autoincrement())
   organizationId     Int          @map("organization_id")
   employeeId         Int?         @map("employee_id")
@@ -452,7 +453,7 @@ model EmployeeDocument {
 
   @@index([organizationId])
   @@index([employeeId])
-  @@map("employee_documents")
+  @@map("archived_documents")
 }
 
 model EmployeeTask {

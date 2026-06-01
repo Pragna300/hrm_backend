@@ -11,6 +11,7 @@ const DEFAULT_PLANS = [
     features: 'Attendance, Leaves, Basic Reports',
     isDefault: true,
     sortOrder: 1,
+    currency: 'INR',
   },
   {
     name: 'Starter',
@@ -21,6 +22,7 @@ const DEFAULT_PLANS = [
     seatLimit: 25,
     features: 'Free + Payroll runs, Announcements, Holidays',
     sortOrder: 2,
+    currency: 'INR',
   },
   {
     name: 'Pro',
@@ -31,6 +33,7 @@ const DEFAULT_PLANS = [
     seatLimit: 100,
     features: 'Starter + Multi-location, Department hierarchy, Advanced reports',
     sortOrder: 3,
+    currency: 'INR',
   },
   {
     name: 'Enterprise',
@@ -41,6 +44,7 @@ const DEFAULT_PLANS = [
     seatLimit: 100000,
     features: 'Pro + Custom workflows, Audit log, SSO ready',
     sortOrder: 4,
+    currency: 'INR',
   },
 ];
 

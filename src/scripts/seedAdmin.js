@@ -6,9 +6,9 @@ const { ensurePlansSeeded } = require('../lib/seedPlans');
 
 function resolveSuperAdminInput() {
   return {
-    email: process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'owner@hrm.local',
-    password: process.env.SUPER_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'Owner@123',
-    name: process.env.SUPER_ADMIN_NAME || process.env.ADMIN_NAME || 'Platform Owner',
+    email: process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@example.com',
+    password: process.env.SUPER_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '123456',
+    name: process.env.SUPER_ADMIN_NAME || process.env.ADMIN_NAME || 'SUPER ADMIN',
   };
 }
 

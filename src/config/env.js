@@ -45,7 +45,9 @@ const EnvSchema = z.object({
   SMTP_FROM: z.string().optional(),
   RESEND_FROM: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  STRIPE_ACCOUNT_ID: z.string().optional(),
 });
+
 
 const env = EnvSchema.parse(process.env);
 
