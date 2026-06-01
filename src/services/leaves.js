@@ -169,7 +169,8 @@ async function createLeaveRequest({ organizationId, employeeId, body }) {
 async function decideLeaveRequest({ organizationId, leaveRequestId, approverEmployeeId, decision, note }) {
   const status = decision === 'approve' ? 'approved' : 'rejected';
 
-  return prisma.$transaction(async (tx) => {
+  // Perform all DB operations within a transaction.
+  const updated = await prisma.$transaction(async (tx) => {
     const request = await tx.leaveRequest.findFirst({
       where: { id: leaveRequestId, organizationId },
       include: { leaveType: true, employee: { include: { user: true } } },
@@ -196,7 +197,8 @@ async function decideLeaveRequest({ organizationId, leaveRequestId, approverEmpl
       });
     }
 
-    const updated = await tx.leaveRequest.update({
+    // Update the leave request status and approver info.
+    return tx.leaveRequest.update({
       where: { id: leaveRequestId },
       data: {
         status,
@@ -206,22 +208,25 @@ async function decideLeaveRequest({ organizationId, leaveRequestId, approverEmpl
       },
       include: { leaveType: true, employee: { include: { user: true } } },
     });
-
-    if (updated.employee?.user?.email) {
-      sendLeaveDecided({
-        to: updated.employee.user.email,
-        requesterName: `${updated.employee.firstName} ${updated.employee.lastName}`.trim(),
-        status,
-        leaveType: updated.leaveType.name,
-        startDate: formatYmd(updated.startDate),
-        endDate: formatYmd(updated.endDate),
-        approverNote: updated.approverNote,
-      });
-    }
-
-    return updated;
   });
+
+  // Send notification email outside of the transaction to avoid timeout.
+  if (updated.employee?.user?.email) {
+    sendLeaveDecided({
+      to: updated.employee.user.email,
+      requesterName: `${updated.employee.firstName} ${updated.employee.lastName}`.trim(),
+      status,
+      leaveType: updated.leaveType.name,
+      startDate: formatYmd(updated.startDate),
+      endDate: formatYmd(updated.endDate),
+      approverNote: updated.approverNote,
+    });
+  }
+
+  return updated;
 }
+
+
 
 async function cancelLeaveRequest({ employeeId, leaveRequestId }) {
   const request = await prisma.leaveRequest.findFirst({

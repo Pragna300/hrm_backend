@@ -45,6 +45,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/stripe', require('./routes/stripeRoutes'));
 
 // Centralised error handler must be registered after all routes
 const { errorHandler } = require('./middleware/errorHandler');
