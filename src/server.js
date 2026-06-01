@@ -5,6 +5,16 @@ const { initNotificationSocket } = require('./lib/notificationSocket');
 const { ensurePlansSeeded } = require('./lib/seedPlans');
 const { initTrialExpirationJob } = require('./jobs/trialExpirationJob');
 
+// ── Startup sanity checks ──────────────────────────────────────────────────
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('⚠️  STRIPE_SECRET_KEY is missing – Stripe payments will fail.');
+}
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  console.warn('⚠️  STRIPE_WEBHOOK_SECRET is missing – webhook verification will fail.');
+}
+console.log(`ℹ️  FRONTEND_URL = ${process.env.FRONTEND_URL || '(not set – defaulting to localhost:5173)'}`);
+// ──────────────────────────────────────────────────────────────────────────
+
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
