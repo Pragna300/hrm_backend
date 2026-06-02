@@ -52,7 +52,24 @@ async function sendMail({ to, subject, html, text }) {
   }
 
   try {
-    // Use Resend if available (production on Vercel)
+    // Use SMTP if configured
+    if (env.SMTP_USER && env.SMTP_PASS) {
+      const transporter = buildTransporter();
+      const result = await transporter.sendMail({
+        from: env.SMTP_FROM || env.SMTP_USER,
+        to: recipients.join(', '),
+        subject,
+        html,
+        text,
+      });
+      if (!result?.messageId) {
+        console.error('Email failed: No messageId returned', result);
+        return { sent: false, reason: 'Email provider did not return messageId' };
+      }
+      return { sent: true, id: result.messageId };
+    }
+
+    // Fall back to Resend if available
     if (resend) {
       const fromAddress = getMailerFromAddress();
       if (!fromAddress) {
@@ -85,20 +102,7 @@ async function sendMail({ to, subject, html, text }) {
       return { sent: true, id: result.id || result.data?.id };
     }
 
-    // Fall back to nodemailer SMTP (local development)
-    const transporter = buildTransporter();
-    const result = await transporter.sendMail({
-      from: env.SMTP_FROM || env.SMTP_USER,
-      to: recipients.join(', '),
-      subject,
-      html,
-      text,
-    });
-    if (!result?.messageId) {
-      console.error('Email failed: No messageId returned', result);
-      return { sent: false, reason: 'Email provider did not return messageId' };
-    }
-    return { sent: true, id: result.messageId };
+    return { sent: false, reason: 'No valid email configuration found' };
   } catch (error) {
     console.error('Email Error:', error);
     return {
